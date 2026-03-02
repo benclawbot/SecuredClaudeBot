@@ -1,79 +1,103 @@
 "use client";
 
-import { useEffect, useState } from "react";
-
-interface SystemStatus {
-  gateway: string;
-  sessions: number;
-  uptime: number;
-  memoryMB: number;
-  subsystems: Record<string, string>;
-}
+import { useStatus } from "@/lib/hooks";
+import Link from "next/link";
 
 export default function Home() {
-  const [status, setStatus] = useState<SystemStatus | null>(null);
+  const { status, connected } = useStatus();
+
+  const formatUptime = (seconds: number) => {
+    const h = Math.floor(seconds / 3600);
+    const m = Math.floor((seconds % 3600) / 60);
+    const s = Math.floor(seconds % 60);
+    return `${h}h ${m}m ${s}s`;
+  };
 
   return (
-    <main className="flex min-h-screen">
-      {/* Sidebar */}
-      <nav className="w-56 border-r border-zinc-800 p-4 flex flex-col gap-2">
-        <h1 className="text-lg font-bold mb-4 text-emerald-400">
-          SCB Mission Control
-        </h1>
-        <NavLink href="/chat" label="Chat" active />
-        <NavLink href="/status" label="Status" />
-        <NavLink href="/kanban" label="Kanban" />
-        <NavLink href="/workflows" label="Workflows" />
-        <NavLink href="/media" label="Media" />
-        <NavLink href="/usage" label="Usage" />
-        <NavLink href="/settings" label="Settings" />
-      </nav>
+    <div className="p-6">
+      <div className="max-w-5xl mx-auto">
+        <h2 className="text-2xl font-bold mb-6">Dashboard Overview</h2>
 
-      {/* Main content */}
-      <div className="flex-1 p-6">
-        <div className="max-w-4xl mx-auto">
-          <h2 className="text-2xl font-bold mb-6">Dashboard</h2>
+        {/* Status Cards */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+          <StatusCard
+            title="Gateway"
+            value={connected ? "Online" : "Offline"}
+            color={connected ? "emerald" : "red"}
+          />
+          <StatusCard
+            title="Sessions"
+            value={String(status?.sessions ?? 0)}
+            color="blue"
+          />
+          <StatusCard
+            title="Uptime"
+            value={status ? formatUptime(status.uptime) : "--"}
+            color="violet"
+          />
+          <StatusCard
+            title="Memory"
+            value={status ? `${status.memoryMB} MB` : "--"}
+            color="amber"
+          />
+        </div>
 
-          <div className="grid grid-cols-2 gap-4 mb-8">
-            <StatusCard title="Gateway" value="Online" color="emerald" />
-            <StatusCard title="Sessions" value="0" color="blue" />
-            <StatusCard title="Telegram" value="Pending" color="yellow" />
-            <StatusCard title="LLM" value="Pending" color="yellow" />
-          </div>
-
-          <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-4">
-            <p className="text-zinc-400">
-              Welcome to SecureClaudebot Mission Control. Use the sidebar to
-              navigate between the chat interface, system status, Kanban board,
-              and settings.
-            </p>
+        {/* Subsystem Status */}
+        <div className="bg-zinc-900 rounded-lg border border-zinc-800 p-6 mb-6">
+          <h3 className="text-lg font-semibold mb-4">Subsystems</h3>
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {status?.subsystems
+              ? Object.entries(status.subsystems).map(([name, state]) => (
+                  <div
+                    key={name}
+                    className="flex items-center gap-2 bg-zinc-800/50 rounded-md px-3 py-2"
+                  >
+                    <div
+                      className={`w-2 h-2 rounded-full ${
+                        state === "online" || state === "connected"
+                          ? "bg-emerald-400"
+                          : state === "pending"
+                            ? "bg-yellow-400"
+                            : "bg-zinc-600"
+                      }`}
+                    />
+                    <span className="text-sm capitalize text-zinc-300">
+                      {name}
+                    </span>
+                    <span className="text-xs text-zinc-500 ml-auto capitalize">
+                      {state}
+                    </span>
+                  </div>
+                ))
+              : Array.from({ length: 4 }).map((_, i) => (
+                  <div
+                    key={i}
+                    className="bg-zinc-800/50 rounded-md px-3 py-2 animate-pulse h-10"
+                  />
+                ))}
           </div>
         </div>
-      </div>
-    </main>
-  );
-}
 
-function NavLink({
-  href,
-  label,
-  active,
-}: {
-  href: string;
-  label: string;
-  active?: boolean;
-}) {
-  return (
-    <a
-      href={href}
-      className={`px-3 py-2 rounded-md text-sm transition-colors ${
-        active
-          ? "bg-zinc-800 text-zinc-100"
-          : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800/50"
-      }`}
-    >
-      {label}
-    </a>
+        {/* Quick Links */}
+        <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+          <QuickLink
+            href="/chat"
+            title="Open Chat"
+            description="Claude Code-style streaming conversation"
+          />
+          <QuickLink
+            href="/status"
+            title="System Status"
+            description="Health checks and security events"
+          />
+          <QuickLink
+            href="/settings"
+            title="Settings"
+            description="Configure API keys, LLM, and security"
+          />
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -86,21 +110,45 @@ function StatusCard({
   value: string;
   color: string;
 }) {
-  const colorMap: Record<string, string> = {
+  const colors: Record<string, string> = {
     emerald: "text-emerald-400 border-emerald-400/20",
     blue: "text-blue-400 border-blue-400/20",
     yellow: "text-yellow-400 border-yellow-400/20",
     red: "text-red-400 border-red-400/20",
+    violet: "text-violet-400 border-violet-400/20",
+    amber: "text-amber-400 border-amber-400/20",
   };
 
+  const cls = colors[color] ?? "text-zinc-400 border-zinc-800";
+
   return (
-    <div
-      className={`bg-zinc-900 rounded-lg border p-4 ${colorMap[color] ?? ""}`}
-    >
+    <div className={`bg-zinc-900 rounded-lg border p-4 ${cls}`}>
       <p className="text-xs text-zinc-500 uppercase tracking-wider">{title}</p>
-      <p className={`text-xl font-mono font-bold mt-1 ${colorMap[color]?.split(" ")[0]}`}>
+      <p className={`text-xl font-mono font-bold mt-1 ${cls.split(" ")[0]}`}>
         {value}
       </p>
     </div>
+  );
+}
+
+function QuickLink({
+  href,
+  title,
+  description,
+}: {
+  href: string;
+  title: string;
+  description: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="bg-zinc-900 rounded-lg border border-zinc-800 p-4 hover:border-zinc-700 hover:bg-zinc-800/50 transition-colors group"
+    >
+      <h4 className="text-sm font-semibold text-zinc-200 group-hover:text-emerald-400 transition-colors">
+        {title}
+      </h4>
+      <p className="text-xs text-zinc-500 mt-1">{description}</p>
+    </Link>
   );
 }
