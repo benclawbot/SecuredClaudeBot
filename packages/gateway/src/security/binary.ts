@@ -10,7 +10,9 @@ export function isBinaryAllowed(
   command: string,
   allowlist: string[]
 ): boolean {
-  const name = basename(command);
+  // Handle both Unix and Windows paths (normalize backslashes to forward slashes)
+  const normalized = command.replace(/\\/g, "/");
+  const name = basename(normalized);
   const allowed = allowlist.includes(name);
 
   if (!allowed) {
