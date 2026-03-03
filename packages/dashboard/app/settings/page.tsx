@@ -374,6 +374,42 @@ export default function SettingsPage() {
               <p className="text-xs text-white/40">Irreversible actions</p>
             </div>
           </div>
+
+          <div className="flex items-center justify-between mb-6 pb-6 border-b border-white/5">
+            <div>
+              <p className="text-sm text-white/60">Gateway Control</p>
+              <p className="text-xs text-white/30">Restart to apply Telegram settings</p>
+            </div>
+            {connected ? (
+              <div className="flex gap-3">
+                <button
+                  onClick={() => {
+                    if (confirm("Restart the gateway? It will automatically restart via PM2.")) {
+                      socket?.emit("gateway:restart");
+                    }
+                  }}
+                  disabled={!connected}
+                  className="px-5 py-2.5 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/20 text-amber-400 text-sm font-medium rounded-xl transition-colors"
+                >
+                  Restart Gateway
+                </button>
+                <button
+                  onClick={() => {
+                    if (confirm("Stop the gateway? PM2 will NOT restart it automatically.")) {
+                      socket?.emit("gateway:stop");
+                    }
+                  }}
+                  disabled={!connected}
+                  className="px-5 py-2.5 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-sm font-medium rounded-xl transition-colors"
+                >
+                  Stop Gateway
+                </button>
+              </div>
+            ) : (
+              <span className="text-xs text-amber-400">Gateway stopped - run "pnpm dev" to restart</span>
+            )}
+          </div>
+
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm text-white/60">Clear all sessions</p>

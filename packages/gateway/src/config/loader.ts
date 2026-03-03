@@ -6,6 +6,27 @@ import { createChildLogger } from "../logger/index.js";
 const log = createChildLogger("config");
 
 const DEFAULT_CONFIG_PATH = resolve(process.cwd(), "config.json");
+const PORT_FILE_PATH = resolve(process.cwd(), ".gateway-port");
+
+// Generate a random port in the range 10000-60000
+function randomPort(): number {
+  return Math.floor(Math.random() * 50000) + 10000;
+}
+
+// Save gateway port to a file for dashboard to discover
+export function saveGatewayPort(port: number): void {
+  writeFileSync(PORT_FILE_PATH, port.toString(), "utf-8");
+}
+
+// Read gateway port from file (for dashboard)
+export function readGatewayPort(): number | null {
+  if (existsSync(PORT_FILE_PATH)) {
+    const content = readFileSync(PORT_FILE_PATH, "utf-8").trim();
+    const port = parseInt(content, 10);
+    return isNaN(port) ? null : port;
+  }
+  return null;
+}
 
 /**
  * Load and validate config from a JSON file + environment variable overrides.
@@ -20,7 +41,20 @@ export function loadConfig(
     const content = readFileSync(configPath, "utf-8");
     raw = JSON.parse(content) as Record<string, unknown>;
   } else {
-    log.warn({ path: configPath }, "Config file not found, using env/defaults");
+    log.warn({ path: configPath }, "Config file not found, generating new config with random port");
+    // Generate random port on first start
+    raw = {
+      server: { port: randomPort(), host: "127.0.0.1" },
+      telegram: { botToken: "", approvedUsers: [] },
+      llm: {
+        primary: { provider: "anthropic", model: "" },
+        fallbacks: [],
+      },
+      security: { pin: "", shellAllowedPaths: ["."], binaryAllowlist: ["git", "node", "npm", "pnpm"] },
+      memory: { dbPath: "data/scb.db" },
+    };
+    // Save the generated config
+    saveConfig(raw as unknown as AppConfig, configPath);
   }
 
   // Environment variable overrides (highest priority)
@@ -35,6 +69,10 @@ export function loadConfig(
   }
 
   log.info("Config loaded and validated");
+
+  // Save port to file for dashboard to discover
+  saveGatewayPort(result.data.server.port);
+
   return result.data;
 }
 
@@ -78,11 +116,19 @@ function applyEnvOverrides(raw: Record<string, unknown>): void {
 }
 
 /**
+ * Save the current config to file (merges with existing).
+ */
+export function saveConfig(config: AppConfig, configPath: string = DEFAULT_CONFIG_PATH): void {
+  writeFileSync(configPath, JSON.stringify(config, null, 2), "utf-8");
+  log.info({ path: configPath }, "Config saved");
+}
+
+/**
  * Write a config scaffold file for the onboarding wizard.
  */
 export function writeConfigScaffold(configPath: string = DEFAULT_CONFIG_PATH): void {
   const scaffold = {
-    server: { port: 18789, host: "127.0.0.1" },
+    server: { port: randomPort(), host: "127.0.0.1" },
     telegram: { botToken: "YOUR_TELEGRAM_BOT_TOKEN", approvedUsers: [] },
     llm: {
       primary: { provider: "anthropic", apiKey: "YOUR_API_KEY", model: "claude-sonnet-4-20250514" },

@@ -137,8 +137,35 @@ export class TelegramBot {
         source: "telegram",
       });
 
-      // TODO: Route to LLM — for now echo
-      log.info({ userId, sessionId: session.id }, "Telegram message received");
+      // Route to LLM
+      log.info({ userId, sessionId: session.id }, "Telegram message received, routing to LLM");
+      this.ctx.io.to(session.id).emit("chat:stream:start", { sessionId: session.id });
+
+      try {
+        const messages = session.messages.map((m) => ({
+          role: m.role as "user" | "assistant",
+          content: m.content,
+        }));
+
+        let fullResponse = "";
+        for await (const chunk of this.ctx.llmRouter.stream(messages, session.id)) {
+          fullResponse += chunk;
+          this.ctx.io.to(session.id).emit("chat:stream:chunk", {
+            sessionId: session.id,
+            chunk,
+          });
+        }
+
+        this.ctx.sessions.addMessage(session.id, "assistant", fullResponse);
+        this.ctx.io.to(session.id).emit("chat:stream:end", { sessionId: session.id });
+
+        // Send response back to Telegram
+        await this.sendResponse(userId, fullResponse);
+      } catch (err) {
+        log.error({ err, userId, sessionId: session.id }, "LLM generation failed for Telegram");
+        await this.sendResponse(userId, "Sorry, I failed to generate a response. Check the gateway logs.");
+        this.ctx.io.to(session.id).emit("chat:stream:end", { sessionId: session.id });
+      }
     });
   }
 

@@ -1,7 +1,7 @@
 import { createServer } from "node:http";
 import { mkdirSync, existsSync } from "node:fs";
 import { Server as SocketServer } from "socket.io";
-import { loadConfig } from "./config/loader.js";
+import { loadConfig, saveConfig } from "./config/loader.js";
 import { DATA_DIR } from "./config/defaults.js";
 import { createChildLogger } from "./logger/index.js";
 import { SQLiteDB } from "./memory/sqlite.js";
@@ -10,6 +10,7 @@ import { KeyStore } from "./crypto/keystore.js";
 import { AuditLog } from "./logger/audit.js";
 import { RateLimiter } from "./security/rate-limiter.js";
 import { LlmRouter } from "./llm/router.js";
+import { TelegramBot } from "./telegram/bot.js";
 import type { AppConfig } from "./config/schema.js";
 
 const log = createChildLogger("gateway");
@@ -24,6 +25,7 @@ export interface GatewayContext {
   dashboardRateLimiter: RateLimiter;
   llmRouter: LlmRouter;
   db: SQLiteDB;
+  telegram: TelegramBot | null;
 }
 
 async function main() {
@@ -76,7 +78,20 @@ async function main() {
     dashboardRateLimiter,
     llmRouter,
     db,
+    telegram: null,
   };
+
+  // Initialize Telegram bot if token is configured
+  let telegramBot: TelegramBot | null = null;
+  if (config.telegram.botToken) {
+    telegramBot = new TelegramBot(ctx);
+    ctx.telegram = telegramBot;
+    telegramBot.start().catch((err) => {
+      log.error({ err }, "Failed to start Telegram bot");
+    });
+  } else {
+    log.info("Telegram bot token not configured, skipping Telegram bot initialization");
+  }
 
   // Socket.io connection handler
   io.on("connection", (socket) => {
@@ -186,15 +201,15 @@ async function main() {
 
         if (data.section === "llm" && data.data.primary) {
           const primary = data.data.primary as Record<string, unknown>;
-          const config = {
-            provider: primary.provider as "anthropic" | "openai" | "google" | "ollama",
+          const llmConfig = {
+            provider: primary.provider as "anthropic" | "openai" | "google" | "mistral" | "cohere" | "deepseek" | "groq" | "ollama" | "minimax" | "custom",
             model: primary.model as string,
             apiKey: primary.apiKey as string | undefined,
             baseUrl: primary.baseUrl as string | undefined,
           };
 
           // Validate config before applying
-          const validation = await llmRouter.validateConfig(config);
+          const validation = await llmRouter.validateConfig(llmConfig);
 
           if (!validation.valid) {
             log.warn({ error: validation.error, hint: validation.hint }, "LLM config validation failed");
@@ -208,8 +223,30 @@ async function main() {
           }
 
           // Apply config
-          llmRouter.updatePrimary(config);
-          log.info({ provider: config.provider, model: config.model }, "LLM config validated and applied");
+          llmRouter.updatePrimary(llmConfig);
+
+          // Persist to config file
+          ctx.config.llm.primary = llmConfig;
+          saveConfig(ctx.config);
+
+          log.info({ provider: llmConfig.provider, model: llmConfig.model }, "LLM config validated and applied");
+        }
+
+        if (data.section === "telegram" && data.data) {
+          const telegramData = data.data as Record<string, unknown>;
+
+          // Update config
+          if (telegramData.botToken) {
+            ctx.config.telegram.botToken = telegramData.botToken as string;
+          }
+          if (telegramData.approvedUsers) {
+            ctx.config.telegram.approvedUsers = telegramData.approvedUsers as number[];
+          }
+
+          // Persist to config file
+          saveConfig(ctx.config);
+
+          log.info("Telegram config updated - restart gateway to apply");
         }
 
         audit.log({
@@ -249,6 +286,45 @@ async function main() {
       socket.emit("sessions:cleared");
     });
 
+    // ── Gateway Control ──
+    socket.on("gateway:restart", () => {
+      log.warn({ socketId: socket.id }, "Gateway restart requested via dashboard");
+      audit.log({
+        event: "config.changed",
+        actor: socket.id,
+        detail: "Gateway restart requested via dashboard",
+      });
+      socket.emit("gateway:restart-acknowledged");
+
+      // Gracefully shutdown after a short delay (PM2 will auto-restart)
+      setTimeout(() => {
+        log.warn("Gateway restarting...");
+        process.exit(0);
+      }, 1000);
+    });
+
+    socket.on("gateway:stop", () => {
+      log.warn({ socketId: socket.id }, "Gateway stop requested via dashboard");
+      audit.log({
+        event: "config.changed",
+        actor: socket.id,
+        detail: "Gateway stop requested via dashboard (no restart)",
+      });
+      socket.emit("gateway:stop-acknowledged");
+
+      // Gracefully shutdown and tell PM2 not to restart
+      setTimeout(async () => {
+        log.warn("Gateway stopping (no auto-restart)...");
+        const { execSync } = await import("node:child_process");
+        try {
+          execSync("npx pm2 delete gateway", { stdio: "ignore" });
+        } catch {
+          // Ignore errors
+        }
+        process.exit(0);
+      }, 1000);
+    });
+
     socket.on("disconnect", () => {
       log.debug({ socketId: socket.id }, "Client disconnected");
     });
@@ -256,6 +332,15 @@ async function main() {
 
   // Start listening
   const { port, host } = config.server;
+
+  // Simple HTTP endpoint for dashboard to discover gateway port
+  httpServer.on("request", (req, res) => {
+    if (req.url === "/.gateway-port" || req.url === "/api/port") {
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify({ port, host }));
+    }
+  });
+
   httpServer.listen(port, host, () => {
     log.info({ host, port }, "Gateway listening");
     audit.log({
@@ -266,11 +351,14 @@ async function main() {
   });
 
   // Graceful shutdown
-  const shutdown = () => {
+  const shutdown = async () => {
     log.info("Shutting down...");
     sessions.shutdown();
     rateLimiter.shutdown();
     dashboardRateLimiter.shutdown();
+    if (telegramBot) {
+      await telegramBot.stop();
+    }
     io.close();
     httpServer.close();
     db.close();
