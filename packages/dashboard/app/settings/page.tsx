@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState, useEffect, type FormEvent } from "react";
 import { useSocket } from "@/lib/socket";
-import { Bot, Lock, Shield, Trash2, Check } from "lucide-react";
+import { Bot, Lock, Shield, Trash2, Check, AlertCircle } from "lucide-react";
 
 interface LlmSettings {
   provider: string;
@@ -10,6 +10,19 @@ interface LlmSettings {
   apiKey: string;
   baseUrl: string;
 }
+
+const PROVIDER_MODELS: Record<string, string[]> = {
+  anthropic: ["claude-sonnet-4-20250514", "claude-3-5-haiku-20241022", "claude-opus-4-6-20250514"],
+  openai: ["gpt-4o", "gpt-4o-mini", "gpt-4-turbo", "o1", "o1-mini", "o3-mini"],
+  google: ["gemini-2.0-flash", "gemini-2.0-flash-thinking", "gemini-1.5-pro", "gemini-1.5-flash"],
+  mistral: ["mistral-large-latest", "pixtral-large-latest", "mistral-small-latest"],
+  cohere: ["command-a-03-2025", "command-r-plus", "command-r-7b-12-2024"],
+  deepseek: ["deepseek-chat", "deepseek-reasoner"],
+  groq: ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "llama-3.1-70b-speculative"],
+  ollama: ["llama3.3", "llama3.2", "mistral", "phi4", "qwen2.5", "codellama", "deepseek-coder"],
+  minimax: ["M2-her", "M2.1", "M2"],
+  custom: ["MiniMax-M2.5", "any model name"],
+};
 
 export default function SettingsPage() {
   const { socket, connected } = useSocket();
@@ -33,15 +46,37 @@ export default function SettingsPage() {
 
   // Feedback
   const [savedSection, setSavedSection] = useState<string | null>(null);
+  const [error, setError] = useState<{ error: string; hint: string } | null>(null);
 
   const showSaved = (section: string) => {
     setSavedSection(section);
     setTimeout(() => setSavedSection(null), 2000);
   };
 
+  useEffect(() => {
+    if (!socket) return;
+
+    socket.on("settings:saved", (data: { section: string; success: boolean; error?: string; hint?: string }) => {
+      if (data.section === "llm") {
+        if (data.success) {
+          setSavedSection("llm");
+          setError(null);
+          setTimeout(() => setSavedSection(null), 2000);
+        } else {
+          setError({ error: data.error || "Unknown error", hint: data.hint || "" });
+        }
+      }
+    });
+
+    return () => {
+      socket.off("settings:saved");
+    };
+  }, [socket]);
+
   const handleSaveLlm = (e: FormEvent) => {
     e.preventDefault();
     if (!socket || !connected) return;
+    setError(null);
     socket.emit("settings:update", {
       section: "llm",
       data: {
@@ -53,7 +88,6 @@ export default function SettingsPage() {
         },
       },
     });
-    showSaved("llm");
   };
 
   const handleSaveTelegram = (e: FormEvent) => {
@@ -103,6 +137,17 @@ export default function SettingsPage() {
       <div className="space-y-6">
         {/* LLM Configuration */}
         <section className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+          {error && (
+            <div className="mb-6 p-4 bg-red-500/10 border border-red-500/20 rounded-xl">
+              <div className="flex items-start gap-3">
+                <AlertCircle size={18} className="text-red-400 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-sm text-red-300 font-medium">{error.error}</p>
+                  {error.hint && <p className="text-xs text-red-400/70 mt-1">{error.hint}</p>}
+                </div>
+              </div>
+            </div>
+          )}
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
@@ -123,13 +168,24 @@ export default function SettingsPage() {
             <div className="grid grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs text-white/40 mb-2">Provider</label>
-                <input
-                  type="text"
+                <select
                   value={llm.provider}
-                  onChange={(e) => setLlm({ ...llm, provider: e.target.value })}
-                  placeholder="anthropic, openai, google, ollama"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-emerald-500/50 transition-colors"
-                />
+                  onChange={(e) => setLlm({ ...llm, provider: e.target.value, model: "" })}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-colors appearance-none cursor-pointer"
+                  style={{ backgroundImage: "none" }}
+                >
+                  <option value="" className="bg-zinc-900">Select a provider...</option>
+                  <option value="anthropic" className="bg-zinc-900">Anthropic (Claude)</option>
+                  <option value="openai" className="bg-zinc-900">OpenAI</option>
+                  <option value="google" className="bg-zinc-900">Google (Gemini)</option>
+                  <option value="mistral" className="bg-zinc-900">Mistral</option>
+                  <option value="cohere" className="bg-zinc-900">Cohere</option>
+                  <option value="deepseek" className="bg-zinc-900">DeepSeek</option>
+                  <option value="groq" className="bg-zinc-900">Groq</option>
+                  <option value="ollama" className="bg-zinc-900">Ollama (Local)</option>
+                  <option value="minimax" className="bg-zinc-900">MiniMax</option>
+                  <option value="custom" className="bg-zinc-900">Custom (Any OpenAI-compatible API)</option>
+                </select>
               </div>
               <div>
                 <label className="block text-xs text-white/40 mb-2">Model</label>
@@ -137,9 +193,17 @@ export default function SettingsPage() {
                   type="text"
                   value={llm.model}
                   onChange={(e) => setLlm({ ...llm, model: e.target.value })}
-                  placeholder="claude-sonnet-4-20250514, gpt-4o, etc."
+                  placeholder={PROVIDER_MODELS[llm.provider]?.[0] || "Enter model name"}
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-emerald-500/50 transition-colors"
+                  list={`${llm.provider}-models`}
                 />
+                {PROVIDER_MODELS[llm.provider] && (
+                  <datalist id={`${llm.provider}-models`}>
+                    {PROVIDER_MODELS[llm.provider].map((m) => (
+                      <option key={m} value={m} className="bg-zinc-900" />
+                    ))}
+                  </datalist>
+                )}
               </div>
             </div>
 
@@ -157,16 +221,21 @@ export default function SettingsPage() {
               </div>
             )}
 
-            {(llm.provider === "openai" || llm.provider === "ollama" || llm.baseUrl) && (
+            {(llm.provider === "openai" || llm.provider === "ollama" || llm.provider === "custom" || llm.baseUrl) && (
               <div>
                 <label className="block text-xs text-white/40 mb-2">
-                  Base URL {llm.provider === "ollama" && "(default: localhost:11434)"}
+                  Base URL {llm.provider === "ollama" ? "(default: localhost:11434)" : "(optional)"}
                 </label>
                 <input
                   type="url"
                   value={llm.baseUrl}
                   onChange={(e) => setLlm({ ...llm, baseUrl: e.target.value })}
-                  placeholder={llm.provider === "ollama" ? "http://localhost:11434/api" : "https://api.openai.com/v1"}
+                  placeholder={
+                    llm.provider === "ollama" ? "http://localhost:11434/api" :
+                    llm.provider === "custom" ? "https://api.minimax.io/anthropic" :
+                    llm.provider === "openai" ? "https://api.openai.com/v1" :
+                    "https://api.provider.com/v1"
+                  }
                   className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-emerald-500/50 transition-colors"
                 />
               </div>

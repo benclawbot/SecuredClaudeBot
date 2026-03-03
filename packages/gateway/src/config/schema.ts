@@ -9,10 +9,21 @@ export const telegramConfigSchema = z.object({
 });
 
 export const llmProviderSchema = z.object({
-  provider: z.enum(["anthropic", "openai", "google", "ollama"]),
+  provider: z.enum([
+    "anthropic",
+    "openai",
+    "google",
+    "mistral",
+    "cohere",
+    "deepseek",
+    "groq",
+    "ollama",
+    "minimax",
+    "custom",
+  ]),
   apiKey: z.string().optional(),
   model: z.string(),
-  baseUrl: z.string().url().optional(),
+  baseUrl: z.string().optional(),
 });
 
 export const llmConfigSchema = z.object({

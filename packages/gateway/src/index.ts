@@ -181,14 +181,42 @@ async function main() {
     // ── Settings ──
     socket.on(
       "settings:update",
-      (data: { section: string; data: Record<string, unknown> }) => {
+      async (data: { section: string; data: Record<string, unknown> }) => {
         log.info({ section: data.section }, "Settings update requested");
+
+        if (data.section === "llm" && data.data.primary) {
+          const primary = data.data.primary as Record<string, unknown>;
+          const config = {
+            provider: primary.provider as "anthropic" | "openai" | "google" | "ollama",
+            model: primary.model as string,
+            apiKey: primary.apiKey as string | undefined,
+            baseUrl: primary.baseUrl as string | undefined,
+          };
+
+          // Validate config before applying
+          const validation = await llmRouter.validateConfig(config);
+
+          if (!validation.valid) {
+            log.warn({ error: validation.error, hint: validation.hint }, "LLM config validation failed");
+            socket.emit("settings:saved", {
+              section: data.section,
+              success: false,
+              error: validation.error,
+              hint: validation.hint,
+            });
+            return;
+          }
+
+          // Apply config
+          llmRouter.updatePrimary(config);
+          log.info({ provider: config.provider, model: config.model }, "LLM config validated and applied");
+        }
+
         audit.log({
           event: "config.changed",
           actor: socket.id,
           detail: `Settings section "${data.section}" updated via dashboard`,
         });
-        // Settings persistence will be fully implemented with config file write
         socket.emit("settings:saved", { section: data.section, success: true });
       }
     );
