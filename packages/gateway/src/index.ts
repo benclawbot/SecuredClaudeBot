@@ -11,6 +11,8 @@ import { AuditLog } from "./logger/audit.js";
 import { RateLimiter } from "./security/rate-limiter.js";
 import { LlmRouter } from "./llm/router.js";
 import { TelegramBot } from "./telegram/bot.js";
+import { PlaywrightBridge } from "./playwright/bridge.js";
+import { TailscaleManager } from "./tailscale/manager.js";
 import type { AppConfig } from "./config/schema.js";
 
 const log = createChildLogger("gateway");
@@ -26,6 +28,8 @@ export interface GatewayContext {
   llmRouter: LlmRouter;
   db: SQLiteDB;
   telegram: TelegramBot | null;
+  playwright: PlaywrightBridge | null;
+  tailscale: TailscaleManager | null;
 }
 
 async function main() {
@@ -79,6 +83,8 @@ async function main() {
     llmRouter,
     db,
     telegram: null,
+    playwright: null,
+    tailscale: null,
   };
 
   // Initialize Telegram bot if token is configured
@@ -91,6 +97,37 @@ async function main() {
     });
   } else {
     log.info("Telegram bot token not configured, skipping Telegram bot initialization");
+  }
+
+  // Initialize Playwright if enabled
+  let playwrightBridge: PlaywrightBridge | null = null;
+  if (config.playwright?.enabled) {
+    playwrightBridge = new PlaywrightBridge(audit, config.playwright.timeoutMs);
+    ctx.playwright = playwrightBridge;
+    playwrightBridge.start().catch((err) => {
+      log.error({ err }, "Failed to start Playwright bridge");
+    });
+    log.info("Playwright bridge started");
+  } else {
+    log.info("Playwright not enabled in config");
+  }
+
+  // Initialize Tailscale if enabled
+  let tailscaleManager: TailscaleManager | null = null;
+  if (config.tailscale?.enabled) {
+    tailscaleManager = new TailscaleManager(config.tailscale);
+    ctx.tailscale = tailscaleManager;
+    tailscaleManager.start().then((success) => {
+      if (success) {
+        log.info("Tailscale connected");
+      } else {
+        log.warn("Tailscale failed to connect");
+      }
+    }).catch((err) => {
+      log.error({ err }, "Failed to start Tailscale");
+    });
+  } else {
+    log.info("Tailscale not enabled in config");
   }
 
   // Socket.io connection handler
@@ -325,6 +362,68 @@ async function main() {
       }, 1000);
     });
 
+    // ── Playwright ──
+    socket.on("playwright:task", async (data: { type: string; url: string; actions?: Array<{ action: string; selector?: string; value?: string }> }) => {
+      if (!ctx.playwright) {
+        socket.emit("playwright:error", { error: "Playwright not enabled" });
+        return;
+      }
+      try {
+        let result: unknown;
+        const actorId = socket.id;
+        if (data.type === "scrape") {
+          result = await ctx.playwright.scrape(data.url, actorId);
+        } else if (data.type === "screenshot") {
+          result = await ctx.playwright.screenshot(data.url, actorId);
+        } else if (data.type === "automate") {
+          result = await ctx.playwright.automate(data.url, data.actions || [], actorId);
+        } else {
+          socket.emit("playwright:error", { error: "Unknown task type" });
+          return;
+        }
+        socket.emit("playwright:result", result);
+      } catch (err) {
+        socket.emit("playwright:error", { error: String(err) });
+      }
+    });
+
+    // ── Tailscale ──
+    socket.on("tailscale:status", async () => {
+      if (!ctx.tailscale) {
+        socket.emit("tailscale:status", { enabled: false, connected: false });
+        return;
+      }
+      const status = ctx.tailscale.getStatus();
+      const ip = status.connected ? await ctx.tailscale.getTailscaleIp() : null;
+      socket.emit("tailscale:status", { ...status, ip });
+    });
+
+    socket.on("tailscale:connect", async () => {
+      if (!ctx.tailscale) {
+        socket.emit("tailscale:error", { error: "Tailscale not configured" });
+        return;
+      }
+      try {
+        const success = await ctx.tailscale.start();
+        socket.emit("tailscale:connected", { success });
+      } catch (err) {
+        socket.emit("tailscale:error", { error: String(err) });
+      }
+    });
+
+    socket.on("tailscale:disconnect", async () => {
+      if (!ctx.tailscale) {
+        socket.emit("tailscale:error", { error: "Tailscale not configured" });
+        return;
+      }
+      try {
+        await ctx.tailscale.stop();
+        socket.emit("tailscale:disconnected", { success: true });
+      } catch (err) {
+        socket.emit("tailscale:error", { error: String(err) });
+      }
+    });
+
     socket.on("disconnect", () => {
       log.debug({ socketId: socket.id }, "Client disconnected");
     });
@@ -359,6 +458,12 @@ async function main() {
     if (telegramBot) {
       await telegramBot.stop();
     }
+    if (playwrightBridge) {
+      await playwrightBridge.stop();
+    }
+    if (tailscaleManager) {
+      await tailscaleManager.stop();
+    }
     io.close();
     httpServer.close();
     db.close();
@@ -370,17 +475,36 @@ async function main() {
 }
 
 function getSystemStatus(ctx: GatewayContext) {
+  // Check Telegram status
+  const telegramStatus = ctx.config.telegram.botToken
+    ? (ctx.telegram ? "active" : "error")
+    : "inactive";
+
+  // Check LLM status
+  const llmStatus = ctx.config.llm.primary?.provider && ctx.config.llm.primary?.model
+    ? "active"
+    : "inactive";
+
+  // Check Playwright status
+  const playwrightStatus = ctx.config.playwright?.enabled
+    ? (ctx.playwright?.isReady() ? "active" : "inactive")
+    : "inactive";
+
+  // Check Tailscale status
+  const tailscaleStatus = ctx.config.tailscale?.enabled
+    ? (ctx.tailscale?.getStatus().connected ? "connected" : "inactive")
+    : "inactive";
+
   return {
     gateway: "online",
     sessions: ctx.sessions.listActive().length,
     uptime: process.uptime(),
     memoryMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
-    // Will be extended with Telegram, LLM, Playwright statuses
     subsystems: {
-      telegram: "pending",
-      llm: "pending",
-      playwright: "pending",
-      tailscale: "unknown",
+      telegram: telegramStatus,
+      llm: llmStatus,
+      playwright: playwrightStatus,
+      tailscale: tailscaleStatus,
     },
   };
 }

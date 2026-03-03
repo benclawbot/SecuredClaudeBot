@@ -31,8 +31,8 @@ export function Sidebar() {
     <aside className="w-16 lg:w-20 shrink-0 bg-[#0a0a0a] flex flex-col h-screen sticky top-0">
       {/* Logo */}
       <Link href="/" className="h-16 flex items-center justify-center border-b border-white/5">
-        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center shadow-lg shadow-emerald-500/20">
-          <span className="text-black font-bold text-sm">SC</span>
+        <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 overflow-hidden">
+          <img src="/logo.svg" alt="SecureClaudebot" className="w-7 h-7 object-contain" />
         </div>
       </Link>
 

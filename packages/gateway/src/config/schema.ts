@@ -75,12 +75,38 @@ export const googleConfigSchema = z
     clientId: z.string(),
     clientSecret: z.string(),
     refreshToken: z.string().optional(),
+    scopes: z.array(z.string()).default([
+      "https://www.googleapis.com/auth/gmail.readonly",
+      "https://www.googleapis.com/auth/calendar.readonly",
+      "https://www.googleapis.com/auth/drive.readonly",
+      "https://www.googleapis.com/auth/photoslibrary.readonly",
+      "https://www.googleapis.com/auth/youtube.readonly",
+    ]),
+  })
+  .optional();
+
+export const microsoftConfigSchema = z
+  .object({
+    clientId: z.string(),
+    clientSecret: z.string(),
+    tenantId: z.string().default("common"),
+    refreshToken: z.string().optional(),
+    scopes: z.array(z.string()).default([
+      "User.Read",
+      "Mail.Read",
+      "Calendars.Read",
+      "Files.Read",
+      "offline_access",
+    ]),
   })
   .optional();
 
 export const githubConfigSchema = z
   .object({
-    token: z.string(),
+    clientId: z.string(),
+    clientSecret: z.string(),
+    token: z.string().optional(),
+    scopes: z.array(z.string()).default(["read:user", "repo", "gist"]),
   })
   .optional();
 
@@ -92,6 +118,32 @@ export const voiceConfigSchema = z
   })
   .optional();
 
+export const playwrightConfigSchema = z
+  .object({
+    /** Enable Playwright for web automation */
+    enabled: z.boolean().default(false),
+    /** Browser to use */
+    browser: z.enum(["chromium", "firefox", "webkit"]).default("chromium"),
+    /** Headless mode */
+    headless: z.boolean().default(true),
+    /** Timeout for tasks in ms */
+    timeoutMs: z.number().default(30000),
+  })
+  .optional();
+
+export const tailscaleConfigSchema = z
+  .object({
+    /** Enable Tailscale for remote access */
+    enabled: z.boolean().default(false),
+    /** Tailscale auth key (or use 'login' for interactive) */
+    authKey: z.string().optional(),
+    /** Additional Tailscale arguments */
+    args: z.array(z.string()).default([]),
+    /** Advertise exit node */
+    advertiseExitNode: z.boolean().default(false),
+  })
+  .optional();
+
 export const appConfigSchema = z.object({
   server: serverConfigSchema.default({}),
   telegram: telegramConfigSchema,
@@ -99,8 +151,11 @@ export const appConfigSchema = z.object({
   security: securityConfigSchema.default({}),
   memory: memoryConfigSchema.default({}),
   google: googleConfigSchema,
+  microsoft: microsoftConfigSchema,
   github: githubConfigSchema,
   voice: voiceConfigSchema,
+  playwright: playwrightConfigSchema,
+  tailscale: tailscaleConfigSchema,
 });
 
 export type AppConfig = z.infer<typeof appConfigSchema>;
@@ -110,3 +165,8 @@ export type LlmProvider = z.infer<typeof llmProviderSchema>;
 export type SecurityConfig = z.infer<typeof securityConfigSchema>;
 export type ServerConfig = z.infer<typeof serverConfigSchema>;
 export type MemoryConfig = z.infer<typeof memoryConfigSchema>;
+export type PlaywrightConfig = z.infer<typeof playwrightConfigSchema>;
+export type TailscaleConfig = z.infer<typeof tailscaleConfigSchema>;
+export type GoogleConfig = z.infer<typeof googleConfigSchema>;
+export type MicrosoftConfig = z.infer<typeof microsoftConfigSchema>;
+export type GithubConfig = z.infer<typeof githubConfigSchema>;

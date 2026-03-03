@@ -66,12 +66,12 @@ export class AuditLog {
     const limit = opts.limit ?? 100;
     if (opts.event) {
       return this.db.all(
-        "SELECT * FROM audit_log WHERE event = ? ORDER BY id DESC LIMIT ?",
+        "SELECT id, strftime('%s', timestamp) * 1000 as ts, event, actor, detail, meta FROM audit_log WHERE event = ? ORDER BY id DESC LIMIT ?",
         [opts.event, limit]
       );
     }
     return this.db.all(
-      "SELECT * FROM audit_log ORDER BY id DESC LIMIT ?",
+      "SELECT id, strftime('%s', timestamp) * 1000 as ts, event, actor, detail, meta FROM audit_log ORDER BY id DESC LIMIT ?",
       [limit]
     );
   }

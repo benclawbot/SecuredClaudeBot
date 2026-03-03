@@ -7,6 +7,10 @@ export const metadata: Metadata = {
   title: "SecureClaudebot",
   description: "Ultra-secure personal AI gateway",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/logo.svg",
+    apple: "/logo.svg",
+  },
 };
 
 export const viewport: Viewport = {
