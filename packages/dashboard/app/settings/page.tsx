@@ -20,7 +20,7 @@ const PROVIDER_MODELS: Record<string, string[]> = {
   deepseek: ["deepseek-chat", "deepseek-reasoner"],
   groq: ["llama-3.3-70b-versatile", "mixtral-8x7b-32768", "llama-3.1-70b-speculative"],
   ollama: ["llama3.3", "llama3.2", "mistral", "phi4", "qwen2.5", "codellama", "deepseek-coder"],
-  minimax: ["M2-her", "M2.1", "M2"],
+  minimax: ["M2.5", "M2.5-Lightning", "M2-her", "M2.1", "M2"],
   custom: ["MiniMax-M2.5", "any model name"],
 };
 
