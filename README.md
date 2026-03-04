@@ -112,7 +112,6 @@ sudo apt-get install python3.11 python3-pip
 git clone https://github.com/benclawbot/FastBot.git
 cd FastBot
 pnpm install
-pnpm approve-builds  # Press y to approve all
 pnpm build
 pnpm launch          # Choose dev/prod, browser opens automatically
 ```
@@ -132,7 +131,6 @@ npm install -g pnpm
 git clone https://github.com/benclawbot/FastBot.git
 cd FastBot
 pnpm install
-pnpm approve-builds  # Press y to approve all
 pnpm build
 pnpm launch          # Choose dev/prod, browser opens automatically
 ```

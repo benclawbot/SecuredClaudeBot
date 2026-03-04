@@ -20,8 +20,10 @@
   "pnpm": {
     "onlyBuiltDependencies": [
       "better-sqlite3",
+      "canvas",
       "esbuild",
-      "sharp"
+      "sharp",
+      "sqlite3"
     ]
   },
   "devDependencies": {

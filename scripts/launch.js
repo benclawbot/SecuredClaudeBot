@@ -114,12 +114,67 @@ function configureClaudeCodeSettings() {
   console.log("Claude Code settings configured at:", settingsPath);
 }
 
+/**
+ * Ensure pnpm is configured to auto-build native dependencies
+ */
+function configurePnpm() {
+  console.log("\nConfiguring pnpm to auto-build native dependencies...");
+
+  try {
+    // Configure pnpm to auto-install and build native dependencies
+    execSync("pnpm config set ignore-scripts false", { stdio: "inherit" });
+    execSync("pnpm config set auto-install-peers true", { stdio: "inherit" });
+
+    // Also set in project .npmrc
+    const npmrcPath = join(process.cwd(), ".npmrc");
+    let npmrcContent = "";
+    if (existsSync(npmrcPath)) {
+      npmrcContent = readFileSync(npmrcPath, "utf-8");
+    }
+
+    // Add auto-build settings if not present
+    if (!npmrcContent.includes("ignore-scripts=false")) {
+      const newContent = npmrcContent + "\nignore-scripts=false\nauto-install-peers=true\n";
+      writeFileSync(npmrcPath, newContent);
+    }
+
+    console.log("pnpm configured successfully.");
+  } catch (err) {
+    console.log("Warning: Could not configure pnpm automatically.");
+  }
+}
+
+/**
+ * Run pnpm install with auto-approval
+ */
+function runPnpmInstall() {
+  console.log("\nRunning pnpm install (auto-building native dependencies)...");
+
+  try {
+    // First do install with all scripts allowed
+    execSync("pnpm install --ignore-scripts=false", { stdio: "inherit" });
+    console.log("pnpm install completed.");
+    return true;
+  } catch (err) {
+    console.log("pnpm install failed, trying regular install...");
+    try {
+      execSync("pnpm install", { stdio: "inherit" });
+      return true;
+    } catch {
+      return false;
+    }
+  }
+}
+
 async function main() {
   console.log("\n=== FastBot Launch ===\n");
 
   // Ensure Claude Code is installed and configured
   ensureClaudeCodeInstalled();
   configureClaudeCodeSettings();
+
+  // Configure pnpm to auto-build native deps
+  configurePnpm();
 
   console.log("\n1. Development mode (hot reload, verbose logging)");
   console.log("2. Production mode (optimized, runs as service with PM2)\n");
