@@ -794,6 +794,18 @@ async function main() {
       }
     });
 
+    // ── Voice Mode Toggle ──
+    socket.on("voice:toggle", async (data: { enabled: boolean }) => {
+      const voiceConfig = config.telegram;
+      voiceConfig.voiceReplies = data.enabled;
+      log.info({ enabled: data.enabled }, "Voice mode toggled");
+      socket.emit("voice:status", { enabled: data.enabled });
+    });
+
+    socket.on("voice:status:request", async () => {
+      socket.emit("voice:status", { enabled: config.telegram.voiceReplies });
+    });
+
     // ── File Upload ──
     socket.on("file:upload", async (data: { filename: string; content: string; type: string }) => {
       try {
@@ -947,7 +959,7 @@ async function main() {
 async function getSystemStatus(ctx: GatewayContext) {
   // Check Telegram status
   const telegramStatus = ctx.config.telegram.botToken
-    ? (ctx.telegram ? "active" : "error")
+    ? (ctx.telegram ? "connected" : "pending")
     : "inactive";
 
   // Check LLM status

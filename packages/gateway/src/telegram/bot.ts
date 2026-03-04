@@ -64,12 +64,58 @@ export class TelegramBot {
       }
 
       const status = this.getStatus();
+      const voiceEnabled = this.ctx.config.telegram.voiceReplies;
       await botCtx.reply(
         `*SecureClaudebot Status*\n\n` +
           `Gateway: ${status.gateway}\n` +
           `Uptime: ${status.uptimeMin}m\n` +
           `Memory: ${status.memoryMB}MB\n` +
-          `Sessions: ${status.sessions}`,
+          `Sessions: ${status.sessions}\n` +
+          `Voice Replies: ${voiceEnabled ? "ON" : "OFF"}`,
+        { parse_mode: "Markdown" }
+      );
+    });
+
+    // /voice command - toggle voice replies on
+    this.bot.command("voice", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      this.ctx.config.telegram.voiceReplies = true;
+      await botCtx.reply("Voice replies enabled. I'll respond with voice notes! 🎤");
+    });
+
+    // /text command - toggle voice replies off
+    this.bot.command("text", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      this.ctx.config.telegram.voiceReplies = false;
+      await botCtx.reply("Voice replies disabled. I'll respond with text only.");
+    });
+
+    // /help command
+    this.bot.command("help", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      await botCtx.reply(
+        `*SecureClaudebot Commands*\n\n` +
+          `/start - Start the bot\n` +
+          `/help - Show this message\n` +
+          `/status - Check system status\n` +
+          `/voice - Enable voice replies\n` +
+          `/text - Disable voice replies\n` +
+          `/models - List available LLM models`,
         { parse_mode: "Markdown" }
       );
     });
