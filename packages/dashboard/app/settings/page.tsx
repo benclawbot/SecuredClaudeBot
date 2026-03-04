@@ -457,32 +457,20 @@ export default function SettingsPage() {
               </button>
             </div>
 
-            {/* Voice Provider */}
+            {/* Voice Provider - GTTS only for now */}
             <div>
               <label className="block text-xs text-white/40 mb-2">Voice Provider</label>
               <select
                 value={voiceProvider}
                 onChange={(e) => {
                   setVoiceProvider(e.target.value);
-                  // Set default voice ID based on provider
-                  const defaults: Record<string, string> = {
-                    gtts: "en",
-                    elevenlabs: "rachel",
-                    openai: "alloy",
-                    coqui: "tts_models/en/ljspeech/glow-tts",
-                    piper: "en_US-lessac-medium",
-                  };
-                  setVoiceId(defaults[e.target.value] || "en");
+                  setVoiceId("en");
                 }}
                 disabled={!connected}
                 className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-purple-500/50 transition-colors appearance-none cursor-pointer disabled:opacity-50"
                 style={{ backgroundImage: "none" }}
               >
                 <option value="gtts" className="bg-zinc-900">gTTS (Free - Google Translate)</option>
-                <option value="elevenlabs" className="bg-zinc-900">ElevenLabs (Premium)</option>
-                <option value="openai" className="bg-zinc-900">OpenAI TTS</option>
-                <option value="coqui" className="bg-zinc-900">Coqui TTS (Local)</option>
-                <option value="piper" className="bg-zinc-900">Piper TTS (Local)</option>
               </select>
             </div>
 
@@ -500,47 +488,22 @@ export default function SettingsPage() {
               >
                 {voiceProvider === "gtts" && (
                   <>
-                    <option value="en" className="bg-zinc-900">English</option>
-                    <option value="en-us" className="bg-zinc-900">English (US)</option>
-                    <option value="fr" className="bg-zinc-900">French</option>
-                    <option value="de" className="bg-zinc-900">German</option>
-                    <option value="es" className="bg-zinc-900">Spanish</option>
-                    <option value="it" className="bg-zinc-900">Italian</option>
-                    <option value="ja" className="bg-zinc-900">Japanese</option>
-                    <option value="ko" className="bg-zinc-900">Korean</option>
-                    <option value="pt" className="bg-zinc-900">Portuguese</option>
-                    <option value="ru" className="bg-zinc-900">Russian</option>
-                  </>
-                )}
-                {voiceProvider === "elevenlabs" && (
-                  <>
-                    <option value="rachel" className="bg-zinc-900">Rachel</option>
-                    <option value="domi" className="bg-zinc-900">Domi</option>
-                    <option value="bella" className="bg-zinc-900">Bella</option>
-                    <option value="adam" className="bg-zinc-900">Adam</option>
-                  </>
-                )}
-                {voiceProvider === "openai" && (
-                  <>
-                    <option value="alloy" className="bg-zinc-900">Alloy</option>
-                    <option value="echo" className="bg-zinc-900">Echo</option>
-                    <option value="fable" className="bg-zinc-900">Fable</option>
-                    <option value="onyx" className="bg-zinc-900">Onyx</option>
-                    <option value="nova" className="bg-zinc-900">Nova</option>
-                    <option value="shimmer" className="bg-zinc-900">Shimmer</option>
-                  </>
-                )}
-                {voiceProvider === "coqui" && (
-                  <>
-                    <option value="tts_models/en/ljspeech/glow-tts" className="bg-zinc-900">Glow TTS (English)</option>
-                    <option value="tts_models/en/ljspeech/fast_pitch" className="bg-zinc-900">Fast Pitch (English)</option>
-                    <option value="tts_models/multilingual/multi-dataset/xtts_v2" className="bg-zinc-900">XTTS v2 (Multilingual)</option>
-                  </>
-                )}
-                {voiceProvider === "piper" && (
-                  <>
-                    <option value="en_US-lessac-medium" className="bg-zinc-900">Lessac Medium</option>
-                    <option value="en_US-lessac-medium.onnx" className="bg-zinc-900">Lessac Medium (ONNX)</option>
+                    <option value="en">English</option>
+                    <option value="en-us">English (US)</option>
+                    <option value="fr">French</option>
+                    <option value="de">German</option>
+                    <option value="es">Spanish</option>
+                    <option value="it">Italian</option>
+                    <option value="ja">Japanese</option>
+                    <option value="ko">Korean</option>
+                    <option value="pt">Portuguese</option>
+                    <option value="ru">Russian</option>
+                    <option value="zh-CN">Chinese (Mandarin)</option>
+                    <option value="ar">Arabic</option>
+                    <option value="hi">Hindi</option>
+                    <option value="nl">Dutch</option>
+                    <option value="pl">Polish</option>
+                    <option value="tr">Turkish</option>
                   </>
                 )}
               </select>
