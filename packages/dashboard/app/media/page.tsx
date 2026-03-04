@@ -127,6 +127,51 @@ export default function MediaPage() {
   };
 
   const isImage = (mimeType: string) => mimeType.startsWith("image/");
+  const isPdf = (mimeType: string) => mimeType === "application/pdf";
+  const isText = (mimeType: string) =>
+    mimeType.startsWith("text/") ||
+    mimeType === "application/json" ||
+    mimeType === "application/xml";
+
+  const getPreviewContent = () => {
+    if (!previewData) return null;
+
+    if (isImage(selectedFile.mimeType)) {
+      return (
+        <img
+          src={`data:${selectedFile.mimeType};base64,${previewData}`}
+          alt={selectedFile.originalName}
+          className="w-full rounded-lg"
+        />
+      );
+    }
+
+    if (isPdf(selectedFile.mimeType)) {
+      return (
+        <iframe
+          src={`data:${selectedFile.mimeType};base64,${previewData}#toolbar=0&navpanes=0`}
+          className="w-full h-64 rounded-lg"
+          title="PDF Preview"
+        />
+      );
+    }
+
+    if (isText(selectedFile.mimeType)) {
+      try {
+        const text = atob(previewData);
+        return (
+          <pre className="text-xs text-white/70 overflow-auto max-h-64 p-2 whitespace-pre-wrap">
+            {text.slice(0, 2000)}
+            {text.length > 2000 && "\n... (truncated)"}
+          </pre>
+        );
+      } catch {
+        return <p className="text-white/40">Unable to display text content</p>;
+      }
+    }
+
+    return null;
+  };
 
   return (
     <div className="flex h-[calc(100vh-64px)]">
@@ -322,13 +367,9 @@ export default function MediaPage() {
           </div>
 
           {/* Preview Content */}
-          <div className="bg-white/5 rounded-xl p-4 mb-6">
-            {isImage(selectedFile.mimeType) && previewData ? (
-              <img
-                src={`data:${selectedFile.mimeType};base64,${previewData}`}
-                alt={selectedFile.originalName}
-                className="w-full rounded-lg"
-              />
+          <div className="bg-white/5 rounded-xl p-4 mb-6 min-h-[200px]">
+            {previewData ? (
+              getPreviewContent()
             ) : (
               <div className="aspect-square flex items-center justify-center">
                 <File size={48} className="text-white/30" />
@@ -358,6 +399,14 @@ export default function MediaPage() {
 
           {/* Actions */}
           <div className="flex gap-2 mt-6">
+            <a
+              href={`/api/media/${selectedFile.id}`}
+              download={selectedFile.originalName}
+              className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/20 text-emerald-400 text-sm rounded-lg transition-colors"
+            >
+              <Download size={14} />
+              Download
+            </a>
             <button
               onClick={() => handleDelete(selectedFile)}
               className="flex-1 flex items-center justify-center gap-2 px-4 py-2 bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400 text-sm rounded-lg transition-colors"

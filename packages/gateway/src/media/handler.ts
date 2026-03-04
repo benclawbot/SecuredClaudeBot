@@ -140,6 +140,19 @@ export class MediaHandler {
   }
 
   /**
+   * Search files by query (matches filename)
+   */
+  search(query: string): MediaFile[] {
+    const allFiles = this.list();
+    if (!query) return allFiles;
+
+    const lowerQuery = query.toLowerCase();
+    return allFiles.filter(f =>
+      f.originalName.toLowerCase().includes(lowerQuery)
+    );
+  }
+
+  /**
    * Get a stored file with its data by ID.
    */
   get(filenameOrId: string): MediaFile & { data: Buffer } | null {

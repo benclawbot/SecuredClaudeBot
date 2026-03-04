@@ -91,6 +91,7 @@ Ultra-secure personal AI gateway inspired by OpenClaw. Runs on Android (Termux) 
 - Node.js 22+
 - pnpm 10+
 - Python 3.11+ (for orchestration)
+- Claude Code CLI (installed automatically during setup)
 - (Optional) Telegram bot token from @BotFather
 
 ### Installation
@@ -212,6 +213,45 @@ On first run, the dashboard redirects to the Setup Wizard at `/setup`:
 5. **Review** - Confirm and save your configuration
 
 The setup wizard ensures all required settings are configured before using the bot.
+
+### Claude Code CLI Configuration
+
+FastBot uses Claude Code CLI for agent operations and skill management. After setup, you should configure Claude Code to match your LLM preferences:
+
+**Location:** `~/.claude/settings.json` (Linux/macOS) or `%USERPROFILE%\.claude\settings.json` (Windows)
+
+**Key settings to customize:**
+
+```json
+{
+  "model": "claude-sonnet-4-20250514",
+  "maxTokens": 8192,
+  "thinking": {
+    "enabled": true,
+    "budget": 10000
+  },
+  "dangerouslySkipPermissions": true,
+  "allowedTools": ["Read", "Write", "Edit", "Bash", "Glob", "Grep"],
+  "hooks": {}
+}
+```
+
+**Available models:**
+- `claude-opus-4-6` - Most capable, for complex tasks
+- `claude-sonnet-4-6` - Best for coding (default)
+- `claude-haiku-4-5-20251001` - Fastest, for simple tasks
+- MiniMax models - For cost optimization
+
+**Settings explained:**
+| Setting | Description |
+|---------|-------------|
+| `model` | The LLM model to use |
+| `maxTokens` | Maximum response length |
+| `dangerouslySkipPermissions` | Set to `true` to skip prompts (use with caution) |
+| `allowedTools` | Tools Claude Code can use |
+| `thinking.budget` | Tokens for extended thinking |
+
+**Note:** Claude Code CLI is installed automatically during the FastBot setup process. The `dangerouslySkipPermissions: true` setting allows agents to execute tools without prompts.
 
 ### Configuration
 

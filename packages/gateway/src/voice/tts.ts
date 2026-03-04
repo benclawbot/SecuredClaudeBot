@@ -12,6 +12,7 @@ export interface TtsOptions {
   provider: "elevenlabs" | "openai" | "google" | "polly" | "coqui" | "piper" | "gtts";
   voice?: string;
   model?: string;
+  speed?: number; // 0.5 to 2.0, default 1.0
 }
 
 export interface TtsResult {
@@ -37,7 +38,7 @@ export async function textToSpeech(
     case "piper":
       return textToSpeechPiper(text, options.voice);
     case "gtts":
-      return textToSpeechGTTS(text, options.voice);
+      return textToSpeechGTTS(text, options.voice || "en", options.speed || 1.0);
     case "google":
       return textToSpeechGoogle(text, apiKey);
     case "polly":
@@ -225,7 +226,11 @@ async function textToSpeechGoogle(text: string, _apiKey: string): Promise<TtsRes
 /**
  * Google Translate TTS (free, uses gTTS library)
  */
-async function textToSpeechGTTS(text: string, lang: string = "en"): Promise<TtsResult> {
+async function textToSpeechGTTS(text: string, lang: string = "en", speed: number = 1.0): Promise<TtsResult> {
+  // gTTS doesn't have a direct speed parameter, but we can use slower=true for speeds < 1.0
+  // For speeds > 1.0, there's no direct support in gTTS
+  const slow = speed < 1.0;
+
   return new Promise((resolve, reject) => {
     const tempDir = mkdtempSync("/tmp/tts-");
     const outputPath = join(tempDir, "output.mp3");
@@ -234,7 +239,7 @@ async function textToSpeechGTTS(text: string, lang: string = "en"): Promise<TtsR
       "-c",
       `
 from gtts import gTTS
-tts = gTTS(text=${JSON.stringify(text)}, lang=${JSON.stringify(lang)})
+tts = gTTS(text=${JSON.stringify(text)}, lang=${JSON.stringify(lang)}, slow=${JSON.stringify(slow)})
 tts.save(${JSON.stringify(outputPath)})
 `,
     ], {

@@ -12,6 +12,7 @@ import {
   BarChart3,
   Settings,
   Users,
+  Wrench,
 } from "lucide-react";
 
 const navItems = [
@@ -20,6 +21,7 @@ const navItems = [
   { href: "/agents", label: "Agents", icon: Users },
   { href: "/kanban", label: "Kanban", icon: Columns },
   { href: "/workflows", label: "Workflows", icon: Zap },
+  { href: "/skills", label: "Skills", icon: Wrench },
   { href: "/media", label: "Media", icon: Folder },
   { href: "/usage", label: "Usage", icon: BarChart3 },
   { href: "/settings", label: "Settings", icon: Settings },

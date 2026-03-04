@@ -1,7 +1,9 @@
 #!/usr/bin/env node
 
-import { spawn } from "child_process";
-import { execSync } from "child_process";
+import { spawn, execSync } from "child_process";
+import { existsSync, mkdirSync, writeFileSync, readFileSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
 import readline from "readline";
 
 const rl = readline.createInterface({
@@ -29,9 +31,97 @@ function openBrowser(url) {
   }
 }
 
+/**
+ * Check if Claude Code CLI is installed, if not install it
+ */
+function ensureClaudeCodeInstalled() {
+  console.log("\nChecking Claude Code CLI installation...");
+
+  const claudePath = join(homedir(), ".claude", "bin", "claude");
+
+  if (existsSync(claudePath)) {
+    console.log("Claude Code CLI is already installed.");
+    return true;
+  }
+
+  console.log("Claude Code CLI not found. Installing...");
+
+  try {
+    // Try to install Claude Code via npm
+    execSync("npm install -g @anthropic-ai/claude-code", { stdio: "inherit" });
+    console.log("Claude Code CLI installed successfully!");
+    return true;
+  } catch (err) {
+    console.log("Failed to install via npm. Trying curl installation...");
+
+    try {
+      // Try curl installation for macOS/Linux
+      const isWindows = process.platform === "win32";
+      if (isWindows) {
+        console.log("Windows: Please install Claude Code manually from https://claude.com/claude-code");
+        return false;
+      }
+
+      // Linux/macOS
+      execSync("curl -s https://claude.com/install.sh | sh", { stdio: "inherit" });
+      console.log("Claude Code CLI installed successfully!");
+      return true;
+    } catch (installErr) {
+      console.log("Could not automatically install Claude Code.");
+      console.log("Please install manually: https://claude.com/claude-code");
+      return false;
+    }
+  }
+}
+
+/**
+ * Configure Claude Code settings if not already configured
+ */
+function configureClaudeCodeSettings() {
+  const settingsPath = join(homedir(), ".claude", "settings.json");
+  const settingsDir = join(homedir(), ".claude");
+
+  // Create .claude directory if it doesn't exist
+  if (!existsSync(settingsDir)) {
+    mkdirSync(settingsDir, { recursive: true });
+  }
+
+  // Check if settings.json exists
+  let settings = {};
+  if (existsSync(settingsPath)) {
+    try {
+      settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
+    } catch {
+      settings = {};
+    }
+  }
+
+  // Update settings with recommended values
+  const recommendedSettings = {
+    dangerouslySkipPermissions: true,
+    maxTokens: 8192,
+    thinking: {
+      enabled: true,
+      budget: 10000
+    }
+  };
+
+  // Merge settings
+  const updatedSettings = { ...settings, ...recommendedSettings };
+
+  // Write settings
+  writeFileSync(settingsPath, JSON.stringify(updatedSettings, null, 2));
+  console.log("Claude Code settings configured at:", settingsPath);
+}
+
 async function main() {
   console.log("\n=== FastBot Launch ===\n");
-  console.log("1. Development mode (hot reload, verbose logging)");
+
+  // Ensure Claude Code is installed and configured
+  ensureClaudeCodeInstalled();
+  configureClaudeCodeSettings();
+
+  console.log("\n1. Development mode (hot reload, verbose logging)");
   console.log("2. Production mode (optimized, runs as service with PM2)\n");
 
   const choice = await askQuestion("Choose launch mode (1/2): ");

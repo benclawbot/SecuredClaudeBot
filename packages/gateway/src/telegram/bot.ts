@@ -3,6 +3,7 @@ import { createChildLogger } from "../logger/index.js";
 import { ApprovalManager } from "./approval.js";
 import { chunkMessage } from "./chunker.js";
 import { getBotSystemPrompt } from "../bot/context.js";
+import { MediaHandler } from "../media/handler.js";
 import type { GatewayContext } from "../index.js";
 
 const log = createChildLogger("telegram");
@@ -16,11 +17,13 @@ export class TelegramBot {
   private reconnectAttempts = 0;
   private running = false;
   private systemPrompt: string | undefined;
+  private mediaHandler: MediaHandler;
 
   constructor(private ctx: GatewayContext) {
     this.bot = new Bot(ctx.config.telegram.botToken);
     this.approval = new ApprovalManager(ctx.config.telegram.approvedUsers);
     this.systemPrompt = getBotSystemPrompt();
+    this.mediaHandler = new MediaHandler();
     this.setupHandlers();
     this.registerCommands();
   }
@@ -368,6 +371,7 @@ export class TelegramBot {
       const result = await textToSpeech(text, apiKey || "", {
         provider: voiceConfig.voiceProvider,
         voice: voiceConfig.voiceId,
+        speed: voiceConfig.voiceSpeed || 1.0,
       });
 
       // Send voice note to Telegram (no caption)
@@ -406,13 +410,142 @@ export class TelegramBot {
   /**
    * Send a response to a Telegram user, chunking if needed.
    * Optionally sends as voice note if voiceReplies is enabled.
+   * Also handles media attachments (photos, documents, stickers) embedded in the response.
    */
   async sendResponse(userId: number, text: string): Promise<void> {
+    // Extract and send any media mentioned in the response
+    await this.sendMediaFromResponse(userId, text);
+
+    // Clean up media markers from text before sending
+    const cleanText = this.cleanMediaMarkers(text);
+
     const voiceConfig = this.ctx.config.telegram;
     if (voiceConfig?.voiceReplies) {
-      await this.sendVoiceReply(userId, text);
+      await this.sendVoiceReply(userId, cleanText);
     } else {
-      await this.sendTextResponse(userId, text);
+      await this.sendTextResponse(userId, cleanText);
+    }
+  }
+
+  /**
+   * Parse media markers from LLM response and send corresponding media.
+   * Supported markers:
+   * - [photo:filename] or [photo:search term] - send a photo
+   * - [document:filename] or [document:search term] - send a document
+   * - [sticker:emoji] - send a sticker (emoji)
+   */
+  private async sendMediaFromResponse(userId: number, text: string): Promise<void> {
+    // Extract photo references: [photo:filename]
+    const photoRegex = /\[photo:([^\]]+)\]/gi;
+    const photos = [...text.matchAll(photoRegex)];
+    for (const match of photos) {
+      const searchTerm = match[1].trim();
+      await this.sendPhotoFromLibrary(userId, searchTerm);
+    }
+
+    // Extract document references: [document:filename]
+    const docRegex = /\[document:([^\]]+)\]/gi;
+    const docs = [...text.matchAll(docRegex)];
+    for (const match of docs) {
+      const searchTerm = match[1].trim();
+      await this.sendDocumentFromLibrary(userId, searchTerm);
+    }
+
+    // Extract sticker/emoji references: [sticker:emoji]
+    const stickerRegex = /\[sticker:([^\]]+)\]/gi;
+    const stickers = [...text.matchAll(stickerRegex)];
+    for (const match of stickers) {
+      const emoji = match[1].trim();
+      await this.sendSticker(userId, emoji);
+    }
+  }
+
+  /**
+   * Remove media markers from text response
+   */
+  private cleanMediaMarkers(text: string): string {
+    return text
+      .replace(/\[photo:[^\]]+\]/gi, "")
+      .replace(/\[document:[^\]]+\]/gi, "")
+      .replace(/\[sticker:[^\]]+\]/gi, "")
+      .replace(/\n{3,}/g, "\n\n")  // Clean up multiple newlines
+      .trim();
+  }
+
+  /**
+   * Search media library for a photo and send it
+   */
+  private async sendPhotoFromLibrary(userId: number, searchTerm: string): Promise<void> {
+    try {
+      // Search for image files
+      const files = this.mediaHandler.search(searchTerm);
+      const imageFile = files.find(f => f.mimeType.startsWith("image/"));
+
+      if (imageFile) {
+        const fileData = this.mediaHandler.get(imageFile.id);
+        if (fileData) {
+          const { InputFile } = await import("grammy");
+          await this.bot.api.sendPhoto(userId, new InputFile(fileData.data, imageFile.originalName));
+          log.info({ userId, fileId: imageFile.id }, "Sent photo from media library");
+          return;
+        }
+      }
+
+      // If no file found, try sending as URL (for external images)
+      if (searchTerm.startsWith("http")) {
+        await this.bot.api.sendPhoto(userId, searchTerm);
+        log.info({ userId, url: searchTerm }, "Sent photo from URL");
+      }
+    } catch (err) {
+      log.error({ userId, searchTerm, err }, "Failed to send photo");
+    }
+  }
+
+  /**
+   * Search media library for a document and send it
+   */
+  private async sendDocumentFromLibrary(userId: number, searchTerm: string): Promise<void> {
+    try {
+      const files = this.mediaHandler.search(searchTerm);
+      // Find a non-image file (document)
+      const docFile = files.find(f => !f.mimeType.startsWith("image/"));
+
+      if (docFile) {
+        const fileData = this.mediaHandler.get(docFile.id);
+        if (fileData) {
+          const { InputFile } = await import("grammy");
+          await this.bot.api.sendDocument(userId, new InputFile(fileData.data, docFile.originalName));
+          log.info({ userId, fileId: docFile.id }, "Sent document from media library");
+          return;
+        }
+      }
+
+      // If no file found, try sending as URL
+      if (searchTerm.startsWith("http")) {
+        await this.bot.api.sendDocument(userId, searchTerm);
+        log.info({ userId, url: searchTerm }, "Sent document from URL");
+      }
+    } catch (err) {
+      log.error({ userId, searchTerm, err }, "Failed to send document");
+    }
+  }
+
+  /**
+   * Send a sticker (emoji) to the user
+   */
+  private async sendSticker(userId: number, emoji: string): Promise<void> {
+    try {
+      // Convert emoji to sticker using Telegram's emoji_to_sticker API
+      // This requires a valid emoji character
+      await this.bot.api.sendSticker(userId, emoji);
+      log.info({ userId, emoji }, "Sent sticker/emoji");
+    } catch (err) {
+      // Fallback: try sending as regular message with emoji
+      try {
+        await this.bot.api.sendMessage(userId, emoji);
+      } catch (sendErr) {
+        log.error({ userId, emoji, err: sendErr }, "Failed to send sticker");
+      }
     }
   }
 

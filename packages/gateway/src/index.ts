@@ -27,6 +27,7 @@ import { transcribeBuffer } from "./voice/whisper.js";
 import { textToSpeech } from "./voice/tts.js";
 import { getBotSystemPrompt } from "./bot/context.js";
 import { verifyToken, generateJwtSecret, issueToken } from "./security/jwt.js";
+import * as SkillsManager from "./skills/manager.js";
 import type { AppConfig } from "./config/schema.js";
 
 const log = createChildLogger("gateway");
@@ -1161,6 +1162,17 @@ async function main() {
       }
     });
 
+    // ── Media Search ──
+    socket.on("media:search", async (data: { query: string }) => {
+      try {
+        const files = mediaHandler.search(data.query);
+        socket.emit("media:search-results", { files, query: data.query });
+      } catch (err) {
+        log.error({ err }, "Failed to search media");
+        socket.emit("media:search-results", { error: String(err), files: [] });
+      }
+    });
+
     // ── Media Get ──
     socket.on("media:get", async (data: { id: string }) => {
       try {
@@ -1186,6 +1198,50 @@ async function main() {
       } catch (err) {
         log.error({ err }, "Failed to delete media");
         socket.emit("media:deleted", { success: false, error: String(err) });
+      }
+    });
+
+    // ── Skills List ──
+    socket.on("skills:list", async () => {
+      try {
+        const skills = SkillsManager.listSkills();
+        socket.emit("skills:list", { skills });
+      } catch (err) {
+        log.error({ err }, "Failed to list skills");
+        socket.emit("skills:list", { error: String(err) });
+      }
+    });
+
+    // ── Skills Install ──
+    socket.on("skills:install", async (data: { source: string }) => {
+      try {
+        const result = await SkillsManager.installSkill(data.source);
+        socket.emit("skills:installed", result);
+      } catch (err) {
+        log.error({ err }, "Failed to install skill");
+        socket.emit("skills:installed", { success: false, error: String(err) });
+      }
+    });
+
+    // ── Skills Uninstall ──
+    socket.on("skills:uninstall", async (data: { id: string }) => {
+      try {
+        const result = SkillsManager.uninstallSkill(data.id);
+        socket.emit("skills:uninstalled", result);
+      } catch (err) {
+        log.error({ err }, "Failed to uninstall skill");
+        socket.emit("skills:uninstalled", { success: false, error: String(err) });
+      }
+    });
+
+    // ── Skills Toggle ──
+    socket.on("skills:toggle", async (data: { id: string; enabled: boolean }) => {
+      try {
+        const result = SkillsManager.toggleSkill(data.id, data.enabled);
+        socket.emit("skills:toggled", result);
+      } catch (err) {
+        log.error({ err }, "Failed to toggle skill");
+        socket.emit("skills:toggled", { success: false, error: String(err) });
       }
     });
 
@@ -1228,11 +1284,30 @@ async function main() {
     }
   }
 
-  // Simple HTTP endpoint for dashboard to discover gateway port
+  // Simple HTTP endpoint for dashboard to discover gateway port and serve media
   httpServer.on("request", (req, res) => {
-    if (req.url === "/.gateway-port" || req.url === "/api/port") {
+    const url = req.url || "";
+
+    // Gateway port discovery
+    if (url === "/.gateway-port" || url === "/api/port") {
       res.writeHead(200, { "Content-Type": "application/json" });
       res.end(JSON.stringify({ port: actualPort, host }));
+      return;
+    }
+
+    // Media file serving: /media/:id
+    const mediaMatch = url.match(/^\/media\/(.+)$/);
+    if (mediaMatch) {
+      const fileId = mediaMatch[1];
+      const file = mediaHandler.get(fileId);
+      if (file) {
+        res.writeHead(200, { "Content-Type": file.mimeType });
+        res.end(file.data);
+        return;
+      }
+      res.writeHead(404);
+      res.end("Not found");
+      return;
     }
   });
 
@@ -1338,6 +1413,19 @@ async function getSystemStatus(ctx: GatewayContext) {
     ? ((await ctx.tailscale?.getStatus())?.connected ? "connected" : "inactive")
     : "inactive";
 
+  // Check Voice status
+  const voiceStatus = ctx.config.telegram.voiceReplies
+    ? (ctx.config.telegram.voiceProvider && ctx.config.telegram.voiceId ? "active" : "inactive")
+    : "inactive";
+
+  // Check Auth/JWT status
+  const authStatus = ctx.config.security.jwtSecret && ctx.config.security.pin
+    ? "active"
+    : "inactive";
+
+  // Check Media status
+  const mediaStatus = "active"; // Media is always available
+
   return {
     gateway: "online",
     sessions: ctx.sessions.listActive().length,
@@ -1348,6 +1436,9 @@ async function getSystemStatus(ctx: GatewayContext) {
       llm: llmStatus,
       playwright: playwrightStatus,
       tailscale: tailscaleStatus,
+      voice: voiceStatus,
+      auth: authStatus,
+      media: mediaStatus,
     },
   };
 }
