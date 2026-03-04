@@ -156,7 +156,7 @@ export function saveConfig(config: AppConfig, configPath: string = DEFAULT_CONFI
  */
 export function writeConfigScaffold(configPath: string = DEFAULT_CONFIG_PATH): void {
   const scaffold = {
-    server: { port: randomPort(), host: "127.0.0.1" },
+    server: { port: randomPort(), host: "0.0.0.0" },
     telegram: { botToken: "YOUR_TELEGRAM_BOT_TOKEN", approvedUsers: [] },
     llm: {
       primary: { provider: "anthropic", apiKey: "YOUR_API_KEY", model: "claude-sonnet-4-20250514" },

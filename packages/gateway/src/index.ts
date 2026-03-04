@@ -64,6 +64,11 @@ async function main() {
   // Load config
   const config = loadConfig();
 
+  // Helper to get public host for OAuth URLs
+  const getOAuthHost = (): string => {
+    return config.server.publicHost || config.server.host;
+  };
+
   // Check if first-time setup is needed
   const needsOnboarding = !config.llm?.primary?.apiKey || config.llm.primary.apiKey.startsWith("YOUR_");
   if (needsOnboarding) {
@@ -645,7 +650,7 @@ async function main() {
       }
 
       try {
-        const redirectUri = `http://${config.server.host}:${config.server.dashboardPort}/oauth/google/callback`;
+        const redirectUri = `http://${getOAuthHost()}:${config.server.dashboardPort}/oauth/google/callback`;
         const client = new GoogleClient(googleConfig.clientId, googleConfig.clientSecret, redirectUri);
         const authUrl = client.getAuthUrl(redirectUri);
         socket.emit("oauth:google:url", { url: authUrl, redirectUri });
@@ -665,7 +670,7 @@ async function main() {
       }
 
       try {
-        const redirectUri = data.redirectUri || `http://${config.server.host}:${config.server.dashboardPort}/oauth/google/callback`;
+        const redirectUri = data.redirectUri || `http://${getOAuthHost()}:${config.server.dashboardPort}/oauth/google/callback`;
         const client = new GoogleClient(googleConfig.clientId, googleConfig.clientSecret, redirectUri);
         const refreshToken = await client.exchangeCode(data.code);
 
@@ -677,7 +682,16 @@ async function main() {
             actor: "google",
             detail: "Google OAuth connected via dashboard",
           });
-          socket.emit("oauth:connected", { provider: "google", success: true });
+
+          // Auto-authenticate the socket after OAuth success
+          let token: string | undefined;
+          if (config.security.jwtSecret) {
+            token = issueToken("dashboard_user", config.security.jwtSecret, "web");
+            (socket as any).authenticated = true;
+            (socket as any).user = { sub: "dashboard_user", origin: "web" };
+          }
+
+          socket.emit("oauth:connected", { provider: "google", success: true, token });
           log.info("Google OAuth connected successfully");
         }
       } catch (err) {
@@ -707,7 +721,7 @@ async function main() {
       }
 
       try {
-        const redirectUri = `http://${config.server.host}:${config.server.dashboardPort}/oauth/microsoft/callback`;
+        const redirectUri = `http://${getOAuthHost()}:${config.server.dashboardPort}/oauth/microsoft/callback`;
         const client = new MicrosoftClient(
           msConfig.clientId,
           msConfig.clientSecret,
@@ -733,7 +747,7 @@ async function main() {
       }
 
       try {
-        const redirectUri = data.redirectUri || `http://${config.server.host}:${config.server.dashboardPort}/oauth/microsoft/callback`;
+        const redirectUri = data.redirectUri || `http://${getOAuthHost()}:${config.server.dashboardPort}/oauth/microsoft/callback`;
         const client = new MicrosoftClient(
           msConfig.clientId,
           msConfig.clientSecret,
@@ -750,7 +764,16 @@ async function main() {
             actor: "microsoft",
             detail: "Microsoft OAuth connected via dashboard",
           });
-          socket.emit("oauth:connected", { provider: "microsoft", success: true });
+
+          // Auto-authenticate the socket after OAuth success
+          let token: string | undefined;
+          if (config.security.jwtSecret) {
+            token = issueToken("dashboard_user", config.security.jwtSecret, "web");
+            (socket as any).authenticated = true;
+            (socket as any).user = { sub: "dashboard_user", origin: "web" };
+          }
+
+          socket.emit("oauth:connected", { provider: "microsoft", success: true, token });
           log.info("Microsoft OAuth connected successfully");
         }
       } catch (err) {
@@ -780,7 +803,7 @@ async function main() {
       }
 
       try {
-        const redirectUri = `http://${config.server.host}:${config.server.dashboardPort}/oauth/github/callback`;
+        const redirectUri = `http://${getOAuthHost()}:${config.server.dashboardPort}/oauth/github/callback`;
         const scopes = githubConfig.scopes?.join(" ") || "read:user repo gist";
         const authUrl = `https://github.com/login/oauth/authorize?client_id=${githubConfig.clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}`;
         socket.emit("oauth:github:url", { url: authUrl, redirectUri });
@@ -831,7 +854,16 @@ async function main() {
             actor: "github",
             detail: "GitHub OAuth connected via dashboard",
           });
-          socket.emit("oauth:connected", { provider: "github", success: true });
+
+          // Auto-authenticate the socket after OAuth success
+          let token: string | undefined;
+          if (config.security.jwtSecret) {
+            token = issueToken("dashboard_user", config.security.jwtSecret, "web");
+            (socket as any).authenticated = true;
+            (socket as any).user = { sub: "dashboard_user", origin: "web" };
+          }
+
+          socket.emit("oauth:connected", { provider: "github", success: true, token });
           log.info("GitHub OAuth connected successfully");
         }
       } catch (err) {

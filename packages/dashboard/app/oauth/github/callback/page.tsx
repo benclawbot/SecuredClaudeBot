@@ -1,6 +1,6 @@
 "use client";
 
-import { Suspense, useEffect, useState } from "react";
+import { Suspense, useEffect, useState, useRef } from "react";
 import { useSearchParams } from "next/navigation";
 import { useSocket } from "@/lib/socket";
 import { CheckCircle, XCircle, Loader2 } from "lucide-react";
@@ -10,6 +10,8 @@ function OAuthGitHubCallbackContent() {
   const { socket } = useSocket();
   const [status, setStatus] = useState<"loading" | "success" | "error">("loading");
   const [error, setError] = useState<string>("");
+  const statusRef = useRef(status);
+  statusRef.current = status;
 
   useEffect(() => {
     const code = searchParams.get("code");
@@ -29,16 +31,31 @@ function OAuthGitHubCallbackContent() {
 
     const redirectUri = sessionStorage.getItem("oauth_redirect_uri") || undefined;
 
+    // Timeout after 10 seconds
+    const timeoutId = setTimeout(() => {
+      if (statusRef.current === "loading") {
+        setStatus("error");
+        setError("Connection to gateway timed out. Please make sure the gateway is running.");
+      }
+    }, 10000);
+
     const connectSocket = () => {
       if (!socket) {
         setTimeout(connectSocket, 100);
         return;
       }
 
+      clearTimeout(timeoutId);
+
       socket.emit("oauth:github:callback", { code, redirectUri });
 
-      socket.on("oauth:connected", (data: { provider: string; success: boolean }) => {
+      socket.on("oauth:connected", (data: { provider: string; success: boolean; token?: string }) => {
         if (data.provider === "github" && data.success) {
+          // If token provided, store it and auto-authenticate
+          if (data.token) {
+            localStorage.setItem("gateway_token", data.token);
+            localStorage.setItem("setup_completed", "true");
+          }
           setStatus("success");
         }
       });
@@ -52,6 +69,8 @@ function OAuthGitHubCallbackContent() {
     };
 
     connectSocket();
+
+    return () => clearTimeout(timeoutId);
   }, [socket, searchParams]);
 
   return (

@@ -3,7 +3,6 @@ import "./globals.css";
 import { SocketProvider } from "@/lib/socket";
 import { AuthProvider } from "@/lib/auth";
 import { Sidebar } from "@/components/sidebar";
-import { AuthModal } from "@/components/auth-modal";
 
 export const metadata: Metadata = {
   title: "FastBot",
@@ -33,7 +32,6 @@ export default function RootLayout({
               <Sidebar />
               <main className="flex-1 overflow-auto bg-[#0a0a0a]">{children}</main>
             </div>
-            <AuthModal />
           </AuthProvider>
         </SocketProvider>
       </body>

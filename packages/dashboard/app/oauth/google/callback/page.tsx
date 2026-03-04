@@ -55,8 +55,13 @@ function OAuthCallbackContent() {
       socket.emit(`oauth:${provider}:callback`, { code, state, redirectUri });
 
       // Listen for response
-      socket.on(`oauth:connected`, (data: { provider: string; success: boolean }) => {
+      socket.on(`oauth:connected`, (data: { provider: string; success: boolean; token?: string }) => {
         if (data.provider === provider && data.success) {
+          // If token provided, store it and auto-authenticate
+          if (data.token) {
+            localStorage.setItem("gateway_token", data.token);
+            localStorage.setItem("setup_completed", "true");
+          }
           setStatus("success");
         }
       });

@@ -59,8 +59,10 @@ export const serverConfigSchema = z.object({
   port: z.number().default(20000),
   /** Dashboard Next.js port */
   dashboardPort: z.number().default(3100),
-  /** Hostname to bind to */
-  host: z.string().default("127.0.0.1"),
+  /** Hostname to bind to (use 0.0.0.0 for external access, 127.0.0.1 for localhost only) */
+  host: z.string().default("0.0.0.0"),
+  /** Public hostname for OAuth callbacks (e.g., Tailscale IP or domain). If not set, uses host. */
+  publicHost: z.string().optional(),
   /** Randomize port on each startup (recommended for security) */
   randomizePort: z.boolean().default(true),
 });
