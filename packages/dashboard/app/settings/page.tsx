@@ -2,7 +2,7 @@
 
 import { useState, useEffect, type FormEvent } from "react";
 import { useSocket } from "@/lib/socket";
-import { Bot, Lock, Shield, Trash2, Check, AlertCircle, Link2, Github, Unlink } from "lucide-react";
+import { Bot, Lock, Shield, Trash2, Check, AlertCircle, Link2, Github, Unlink, Zap, Globe } from "lucide-react";
 
 interface LlmSettings {
   provider: string;
@@ -44,6 +44,11 @@ export default function SettingsPage() {
   const [microsoftConnected, setMicrosoftConnected] = useState(false);
   const [githubConnected, setGithubConnected] = useState(false);
 
+  // Subsystems
+  const [playwrightEnabled, setPlaywrightEnabled] = useState(false);
+  const [tailscaleConnected, setTailscaleConnected] = useState(false);
+  const [tailscaleIp, setTailscaleIp] = useState<string | null>(null);
+
   // Security
   const [currentPin, setCurrentPin] = useState("");
   const [newPin, setNewPin] = useState("");
@@ -73,8 +78,30 @@ export default function SettingsPage() {
       }
     });
 
+    // Tailscale status
+    socket.on("tailscale:status", (data: { enabled: boolean; connected: boolean; ip?: string }) => {
+      setTailscaleConnected(data.connected);
+      setTailscaleIp(data.ip || null);
+    });
+
+    socket.on("tailscale:connected", () => {
+      setTailscaleConnected(true);
+      socket?.emit("tailscale:status");
+    });
+
+    socket.on("tailscale:disconnected", () => {
+      setTailscaleConnected(false);
+      setTailscaleIp(null);
+    });
+
+    // Request initial tailscale status
+    socket.emit("tailscale:status");
+
     return () => {
       socket.off("settings:saved");
+      socket.off("tailscale:status");
+      socket.off("tailscale:connected");
+      socket.off("tailscale:disconnected");
     };
   }, [socket]);
 
@@ -411,6 +438,78 @@ export default function SettingsPage() {
               )}
             </div>
           </div>
+        </section>
+
+        {/* Playwright */}
+        <section className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-cyan-500/10 flex items-center justify-center">
+                <Zap size={20} className="text-cyan-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-light">Playwright</h3>
+                <p className="text-xs text-white/40">Web automation and scraping</p>
+              </div>
+            </div>
+            <span className={`text-xs px-2.5 py-1 rounded-full ${playwrightEnabled ? "bg-emerald-500/10 text-emerald-400" : "bg-white/5 text-white/40"}`}>
+              {playwrightEnabled ? "Active" : "Inactive"}
+            </span>
+          </div>
+          <p className="text-xs text-white/30 mb-4">
+            Enable web automation for scraping, screenshots, and browser automation tasks.
+          </p>
+          <button
+            onClick={() => {
+              if (!connected) return;
+              const newValue = !playwrightEnabled;
+              setPlaywrightEnabled(newValue);
+              socket?.emit("settings:update", {
+                section: "playwright",
+                data: { enabled: newValue },
+              });
+              showSaved("playwright");
+            }}
+            disabled={!connected}
+            className={`px-5 py-2.5 text-sm font-medium rounded-xl transition-colors ${
+              playwrightEnabled
+                ? "bg-red-500/10 hover:bg-red-500/20 border border-red-500/20 text-red-400"
+                : "bg-cyan-500 hover:bg-cyan-400 text-black"
+            } disabled:bg-white/10 disabled:text-white/30`}
+          >
+            {playwrightEnabled ? "Disable" : "Enable"}
+          </button>
+        </section>
+
+        {/* Tailscale */}
+        <section className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-blue-500/10 flex items-center justify-center">
+                <Globe size={20} className="text-blue-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-light">Tailscale</h3>
+                <p className="text-xs text-white/40">Secure remote access</p>
+              </div>
+            </div>
+            <span className={`px-3 py-1.5 text-xs font-medium rounded-lg ${
+              tailscaleConnected
+                ? "bg-emerald-500/10 text-emerald-400"
+                : "bg-white/5 text-white/40"
+            }`}>
+              {tailscaleConnected ? "Active" : "Inactive"}
+            </span>
+          </div>
+          <p className="text-xs text-white/30 mb-4">
+            Tailscale provides secure remote access to your gateway from anywhere.
+          </p>
+          {tailscaleIp && (
+            <div className="bg-white/5 rounded-lg p-3 flex items-center justify-between">
+              <span className="text-xs text-white/50">Tailscale IP:</span>
+              <span className="text-sm font-mono text-emerald-400">{tailscaleIp}</span>
+            </div>
+          )}
         </section>
 
         {/* PIN Change */}

@@ -1,0 +1,13 @@
+{
+  "name": "@scb/orchestration",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "python -m src.scb_orchestration",
+    "start": "python -m src.scb_orchestration",
+    "test": "pytest"
+  },
+  "dependencies": {
+    "crewai": "^0.80.0"
+  }
+}

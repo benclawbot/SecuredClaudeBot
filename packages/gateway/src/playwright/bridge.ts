@@ -52,9 +52,11 @@ export class PlaywrightBridge {
   async start(): Promise<void> {
     if (this.worker) return;
 
-    this.worker = spawn("node", ["--loader", "tsx", "packages/playwright/src/worker.ts"], {
+    // Use tsx to run the worker with ESM
+    this.worker = spawn("npx", ["tsx", "packages/playwright/src/worker.ts"], {
       stdio: ["pipe", "pipe", "pipe"],
       cwd: process.cwd(),
+      shell: true,
     });
 
     this.worker.stdout?.setEncoding("utf8");

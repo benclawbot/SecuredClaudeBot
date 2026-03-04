@@ -1,0 +1,23 @@
+[project]
+name = "scb-orchestration"
+version = "0.1.0"
+description = "SecureClaudeBot Agent Orchestration using CrewAI Flows"
+requires-python = ">=3.11"
+dependencies = [
+    "crewai>=0.80.0",
+    "pydantic>=2.0.0",
+    "sqlalchemy>=2.0.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"

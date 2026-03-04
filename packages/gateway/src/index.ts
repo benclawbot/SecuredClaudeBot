@@ -13,6 +13,14 @@ import { LlmRouter } from "./llm/router.js";
 import { TelegramBot } from "./telegram/bot.js";
 import { PlaywrightBridge } from "./playwright/bridge.js";
 import { TailscaleManager } from "./tailscale/manager.js";
+import { AgentsManager } from "./agents/manager.js";
+import { RcaScheduler } from "./agents/rca-scheduler.js";
+import {
+  shouldTriggerOrchestration,
+  extractOrchestrationRequest,
+  triggerOrchestration,
+} from "./orchestration/chat-integration.js";
+import { QmdStore } from "./qmd/store.js";
 import type { AppConfig } from "./config/schema.js";
 
 const log = createChildLogger("gateway");
@@ -30,6 +38,8 @@ export interface GatewayContext {
   telegram: TelegramBot | null;
   playwright: PlaywrightBridge | null;
   tailscale: TailscaleManager | null;
+  agents: AgentsManager | null;
+  qmd: QmdStore | null;
 }
 
 async function main() {
@@ -85,6 +95,8 @@ async function main() {
     telegram: null,
     playwright: null,
     tailscale: null,
+    agents: null,
+    qmd: null,
   };
 
   // Initialize Telegram bot if token is configured
@@ -117,6 +129,7 @@ async function main() {
   if (config.tailscale?.enabled) {
     tailscaleManager = new TailscaleManager(config.tailscale);
     ctx.tailscale = tailscaleManager;
+    tailscaleManager.startStatusChecker();
     tailscaleManager.start().then((success) => {
       if (success) {
         log.info("Tailscale connected");
@@ -128,6 +141,28 @@ async function main() {
     });
   } else {
     log.info("Tailscale not enabled in config");
+  }
+
+  // Initialize Agents Manager
+  let agentsManager: AgentsManager | null = null;
+  let rcaScheduler: RcaScheduler | null = null;
+  if (config.agents) {
+    agentsManager = new AgentsManager(config.agents);
+    await agentsManager.initializeAgents();
+    ctx.agents = agentsManager;
+
+    // Initialize QMD (Query Memory Data) store
+    ctx.qmd = new QmdStore(db, null, config.agents.directory);
+    log.info("QMD store initialized");
+
+    // Start RCA scheduler if enabled
+    if (config.agents.enableRcaCron) {
+      rcaScheduler = new RcaScheduler(agentsManager, config.agents);
+      rcaScheduler.start();
+    }
+    log.info("Agents manager initialized");
+  } else {
+    log.info("Agents not configured");
   }
 
   // Socket.io connection handler
@@ -149,6 +184,56 @@ async function main() {
 
       // Debounce check
       if (sessions.isDuplicate(data.actorId, data.content)) {
+        return;
+      }
+
+      // Check for orchestration trigger
+      if (shouldTriggerOrchestration(data.content)) {
+        const request = extractOrchestrationRequest(data.content);
+
+        // Acknowledge the orchestration request
+        const session = sessions.getOrCreate(data.actorId, "web");
+        sessions.addMessage(session.id, "user", data.content);
+
+        io.to(session.id).emit("chat:message", {
+          sessionId: session.id,
+          role: "user",
+          content: data.content,
+          ts: Date.now(),
+        });
+
+        io.to(session.id).emit("chat:stream:start", { sessionId: session.id });
+
+        const ackMessage = `I'll set up an orchestration workflow for this request. Let me start the process...\n\nYou can track progress at the Kanban board.`;
+        io.to(session.id).emit("chat:stream:chunk", { sessionId: session.id, chunk: ackMessage });
+        io.to(session.id).emit("chat:stream:end", { sessionId: session.id });
+
+        sessions.addMessage(session.id, "assistant", ackMessage);
+
+        // Trigger orchestration
+        const result = await triggerOrchestration(ctx, request, session.id);
+        if (result) {
+          // Send follow-up message with orchestration status
+          const followUp = `\n\n✅ Orchestration started! Request ID: ${result.requestId}\n\nThe agents will work on this. Check the Kanban board to track progress.`;
+          io.to(session.id).emit("chat:message", {
+            sessionId: session.id,
+            role: "assistant",
+            content: followUp,
+            ts: Date.now(),
+          });
+          sessions.addMessage(session.id, "assistant", followUp);
+        } else {
+          const errorMsg = "\n\n⚠️ Orchestration server is not available. Please ensure it's running.";
+          io.to(session.id).emit("chat:message", {
+            sessionId: session.id,
+            role: "assistant",
+            content: errorMsg,
+            ts: Date.now(),
+          });
+          sessions.addMessage(session.id, "assistant", errorMsg);
+        }
+
+        log.info({ request, sessionId: session.id }, "Orchestration triggered from chat");
         return;
       }
 
@@ -208,8 +293,8 @@ async function main() {
     });
 
     // ── Status ──
-    socket.on("status:request", () => {
-      socket.emit("status:update", getSystemStatus(ctx));
+    socket.on("status:request", async () => {
+      socket.emit("status:update", await getSystemStatus(ctx));
     });
 
     // ── Audit Log ──
@@ -284,6 +369,32 @@ async function main() {
           saveConfig(ctx.config);
 
           log.info("Telegram config updated - restart gateway to apply");
+        }
+
+        if (data.section === "playwright" && data.data) {
+          const playwrightData = data.data as Record<string, unknown>;
+
+          if (typeof playwrightData.enabled === "boolean") {
+            if (!ctx.config.playwright) {
+              ctx.config.playwright = { enabled: false, browser: "chromium", headless: true, timeoutMs: 30000 };
+            }
+            ctx.config.playwright.enabled = playwrightData.enabled;
+            saveConfig(ctx.config);
+            log.info({ enabled: playwrightData.enabled }, "Playwright config updated");
+          }
+        }
+
+        if (data.section === "tailscale" && data.data) {
+          const tailscaleData = data.data as Record<string, unknown>;
+
+          if (tailscaleData.authKey) {
+            if (!ctx.config.tailscale) {
+              ctx.config.tailscale = { enabled: false, args: [], advertiseExitNode: false };
+            }
+            ctx.config.tailscale.authKey = tailscaleData.authKey as string;
+            saveConfig(ctx.config);
+            log.info("Tailscale auth key updated");
+          }
         }
 
         audit.log({
@@ -393,7 +504,7 @@ async function main() {
         socket.emit("tailscale:status", { enabled: false, connected: false });
         return;
       }
-      const status = ctx.tailscale.getStatus();
+      const status = await ctx.tailscale.getStatus();
       const ip = status.connected ? await ctx.tailscale.getTailscaleIp() : null;
       socket.emit("tailscale:status", { ...status, ip });
     });
@@ -421,6 +532,203 @@ async function main() {
         socket.emit("tailscale:disconnected", { success: true });
       } catch (err) {
         socket.emit("tailscale:error", { error: String(err) });
+      }
+    });
+
+    // ── Agents ──
+    socket.on("agents:list", () => {
+      if (!ctx.agents) {
+        socket.emit("agents:list", []);
+        return;
+      }
+      const agents = ctx.agents.listAgents();
+      socket.emit("agents:list", agents);
+    });
+
+    socket.on("agents:get", (_data: { id: string }) => {
+      if (!ctx.agents) {
+        socket.emit("agents:data", null);
+        return;
+      }
+      const agent = ctx.agents.getAgent(_data.id);
+      if (!agent) {
+        socket.emit("agents:data", null);
+        return;
+      }
+      const files = ctx.agents.getAgentFiles(_data.id);
+      const fileContents: Record<string, string> = {};
+      for (const file of files) {
+        const content = ctx.agents.readAgentFile(_data.id, file.name);
+        if (content) {
+          fileContents[file.name] = content;
+        }
+      }
+      socket.emit("agents:data", { agent, files: fileContents });
+    });
+
+    socket.on("agents:create", (_data: { name: string; role: string }) => {
+      if (!ctx.agents) {
+        socket.emit("agents:error", { error: "Agents not configured" });
+        return;
+      }
+      const agent = ctx.agents.createAgent(_data.name, _data.role);
+      socket.emit("agents:created", agent);
+    });
+
+    socket.on("agents:update", (_data: { id: string; name?: string; role?: string; status?: string }) => {
+      if (!ctx.agents) {
+        socket.emit("agents:error", { error: "Agents not configured" });
+        return;
+      }
+      const agent = ctx.agents.updateAgent(_data.id, {
+        name: _data.name,
+        role: _data.role,
+        status: _data.status as "active" | "inactive" | "pending",
+      });
+      socket.emit("agents:updated", agent);
+    });
+
+    socket.on("agents:delete", (_data: { id: string }) => {
+      if (!ctx.agents) {
+        socket.emit("agents:error", { error: "Agents not configured" });
+        return;
+      }
+      const success = ctx.agents.deleteAgent(_data.id);
+      socket.emit("agents:deleted", { success });
+    });
+
+    socket.on("agents:update-file", (_data: { agentId: string; filename: string; content: string }) => {
+      if (!ctx.agents) {
+        socket.emit("agents:error", { error: "Agents not configured" });
+        return;
+      }
+      ctx.agents.writeAgentFile(_data.agentId, _data.filename, _data.content);
+      socket.emit("agents:file-updated", { success: true });
+    });
+
+    socket.on("agents:get-user-info", () => {
+      if (!ctx.agents) {
+        socket.emit("agents:user-info", "");
+        return;
+      }
+      const userInfo = ctx.agents.getUserInfo();
+      socket.emit("agents:user-info", userInfo);
+    });
+
+    socket.on("agents:update-user-info", (_data: { content: string }) => {
+      if (!ctx.agents) {
+        socket.emit("agents:error", { error: "Agents not configured" });
+        return;
+      }
+      ctx.agents.setUserInfo(_data.content);
+      socket.emit("agents:user-info-updated", { success: true });
+    });
+
+    socket.on("agents:trigger-rca", () => {
+      if (!ctx.agents) {
+        socket.emit("agents:error", { error: "Agents not configured" });
+        return;
+      }
+      // Trigger RCA for all agents
+      const agents = ctx.agents.listAgents();
+      for (const agent of agents) {
+        const memories = ctx.agents.readAgentFile(agent.id, "memories.md");
+        if (memories && memories.includes("Issue:")) {
+          ctx.agents.addLessonLearned(agent.id, "root_cause", "Issue identified in memories");
+        }
+      }
+      socket.emit("agents:rca-triggered", { success: true });
+    });
+
+    // ── Orchestration ──
+    socket.on("orchestration:status", async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:18790/status");
+        const data = await response.json();
+        socket.emit("orchestration:status", data);
+      } catch {
+        socket.emit("orchestration:status", { error: "Orchestration server not running" });
+      }
+    });
+
+    socket.on("orchestration:kanban", async () => {
+      try {
+        const response = await fetch("http://127.0.0.1:18790/kanban");
+        const data = await response.json();
+        socket.emit("orchestration:kanban", data);
+      } catch {
+        socket.emit("orchestration:kanban", { error: "Orchestration server not running" });
+      }
+    });
+
+    socket.on("orchestration:start", async (data: { request: string }) => {
+      try {
+        const response = await fetch("http://127.0.0.1:18790/start", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ request: data.request }),
+        });
+        const result = await response.json();
+        socket.emit("orchestration:started", result);
+      } catch (err) {
+        socket.emit("orchestration:error", { error: String(err) });
+      }
+    });
+
+    socket.on("orchestration:feedback", async (data: { feedback: string; approved: boolean }) => {
+      try {
+        const response = await fetch("http://127.0.0.1:18790/feedback", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        const result = await response.json();
+        socket.emit("orchestration:feedback-received", result);
+      } catch (err) {
+        socket.emit("orchestration:error", { error: String(err) });
+      }
+    });
+
+    socket.on("orchestration:add-task", async (data: { description: string; assigned_to: string[] }) => {
+      try {
+        const response = await fetch("http://127.0.0.1:18790/task", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        const result = await response.json();
+        socket.emit("orchestration:task-added", result);
+      } catch (err) {
+        socket.emit("orchestration:error", { error: String(err) });
+      }
+    });
+
+    socket.on("orchestration:move-task", async (data: { task_id: string; status: string }) => {
+      try {
+        const response = await fetch("http://127.0.0.1:18790/task/move", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+        const result = await response.json();
+        socket.emit("orchestration:task-moved", result);
+      } catch (err) {
+        socket.emit("orchestration:error", { error: String(err) });
+      }
+    });
+
+    // ── QMD Search ──
+    socket.on("qmd:search", async (data: { query: string; sources?: string[] }) => {
+      if (!ctx.qmd) {
+        socket.emit("qmd:results", { error: "QMD not initialized" });
+        return;
+      }
+      try {
+        const sources = data.sources as ("agent_files" | "chat_history" | "memory")[] | undefined;
+        const results = await ctx.qmd.search(data.query, sources || ["agent_files", "chat_history", "memory"]);
+        socket.emit("qmd:results", { results });
+      } catch (err) {
+        socket.emit("qmd:results", { error: String(err) });
       }
     });
 
@@ -462,6 +770,7 @@ async function main() {
       await playwrightBridge.stop();
     }
     if (tailscaleManager) {
+      tailscaleManager.stopStatusChecker();
       await tailscaleManager.stop();
     }
     io.close();
@@ -474,7 +783,7 @@ async function main() {
   process.on("SIGTERM", shutdown);
 }
 
-function getSystemStatus(ctx: GatewayContext) {
+async function getSystemStatus(ctx: GatewayContext) {
   // Check Telegram status
   const telegramStatus = ctx.config.telegram.botToken
     ? (ctx.telegram ? "active" : "error")
@@ -492,7 +801,7 @@ function getSystemStatus(ctx: GatewayContext) {
 
   // Check Tailscale status
   const tailscaleStatus = ctx.config.tailscale?.enabled
-    ? (ctx.tailscale?.getStatus().connected ? "connected" : "inactive")
+    ? ((await ctx.tailscale?.getStatus())?.connected ? "connected" : "inactive")
     : "inactive";
 
   return {

@@ -11,11 +11,13 @@ import {
   Folder,
   BarChart3,
   Settings,
+  Users,
 } from "lucide-react";
 
 const navItems = [
   { href: "/chat", label: "Chat", icon: MessageCircle },
   { href: "/status", label: "Status", icon: Activity },
+  { href: "/agents", label: "Agents", icon: Users },
   { href: "/kanban", label: "Kanban", icon: Columns },
   { href: "/workflows", label: "Workflows", icon: Zap },
   { href: "/media", label: "Media", icon: Folder },

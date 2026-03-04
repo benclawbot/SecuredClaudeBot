@@ -144,6 +144,42 @@ export const tailscaleConfigSchema = z
   })
   .optional();
 
+export const agentSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  role: z.string(),
+  status: z.enum(["active", "inactive", "pending"]).default("pending"),
+  createdAt: z.number(),
+  updatedAt: z.number(),
+});
+
+/** Orchestration config for CrewAI Flow */
+export const orchestrationConfigSchema = z
+  .object({
+    /** Enable orchestration */
+    enabled: z.boolean().default(false),
+    /** Orchestration server port */
+    port: z.number().default(18790),
+    /** Database path for state persistence */
+    dbPath: z.string().default("./data/orchestration.db"),
+  })
+  .optional();
+
+export const agentsConfigSchema = z
+  .object({
+    /** Agents directory path */
+    directory: z.string().default("data/agents"),
+    /** User info file name */
+    userInfoFile: z.string().default("user_info.md"),
+    /** Auto-save interval in minutes */
+    autoSaveInterval: z.number().default(5),
+    /** Enable CRON for root cause analysis */
+    enableRcaCron: z.boolean().default(true),
+    /** RCA cron schedule (cron syntax) */
+    rcaCronSchedule: z.string().default("0 2 * * *"), // Daily at 2am
+  })
+  .optional();
+
 export const appConfigSchema = z.object({
   server: serverConfigSchema.default({}),
   telegram: telegramConfigSchema,
@@ -156,6 +192,8 @@ export const appConfigSchema = z.object({
   voice: voiceConfigSchema,
   playwright: playwrightConfigSchema,
   tailscale: tailscaleConfigSchema,
+  agents: agentsConfigSchema,
+  orchestration: orchestrationConfigSchema,
 });
 
 export type AppConfig = z.infer<typeof appConfigSchema>;
@@ -170,3 +208,6 @@ export type TailscaleConfig = z.infer<typeof tailscaleConfigSchema>;
 export type GoogleConfig = z.infer<typeof googleConfigSchema>;
 export type MicrosoftConfig = z.infer<typeof microsoftConfigSchema>;
 export type GithubConfig = z.infer<typeof githubConfigSchema>;
+export type Agent = z.infer<typeof agentSchema>;
+export type AgentsConfig = z.infer<typeof agentsConfigSchema>;
+export type OrchestrationConfig = z.infer<typeof orchestrationConfigSchema>;

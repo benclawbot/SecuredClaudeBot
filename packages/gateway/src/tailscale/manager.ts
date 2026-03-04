@@ -11,9 +11,37 @@ export class TailscaleManager {
   private process: ChildProcess | null = null;
   private connected = false;
   private config: TailscaleConfig | null = null;
+  private statusCheckInterval: ReturnType<typeof setInterval> | null = null;
 
   constructor(private opts?: TailscaleConfig) {
     this.config = opts ?? null;
+  }
+
+  /**
+   * Start periodic status checker (runs every hour)
+   */
+  startStatusChecker(): void {
+    if (this.statusCheckInterval) return;
+
+    // Check every hour
+    this.statusCheckInterval = setInterval(async () => {
+      const isConnected = await this.checkStatus();
+      this.connected = isConnected;
+      log.info({ connected: isConnected }, "Periodic Tailscale status check");
+    }, 60 * 60 * 1000);
+
+    log.info("Tailscale status checker started");
+  }
+
+  /**
+   * Stop periodic status checker
+   */
+  stopStatusChecker(): void {
+    if (this.statusCheckInterval) {
+      clearInterval(this.statusCheckInterval);
+      this.statusCheckInterval = null;
+      log.info("Tailscale status checker stopped");
+    }
   }
 
   /**
@@ -23,6 +51,14 @@ export class TailscaleManager {
     if (!this.config?.enabled) {
       log.info("Tailscale not enabled in config");
       return false;
+    }
+
+    // Check if already connected at system level
+    const alreadyConnected = await this.checkStatus();
+    if (alreadyConnected) {
+      log.info("Tailscale already running at system level");
+      this.connected = true;
+      return true;
     }
 
     if (this.connected) {
@@ -134,12 +170,18 @@ export class TailscaleManager {
       });
 
       status.on("close", (code) => {
-        // If output contains "tailscale0" or "Tailscale is running", it's connected
-        const isConnected = output.includes("tailscale0") ||
-          output.toLowerCase().includes("tailscale is running") ||
-          output.toLowerCase().includes("health:");
+        // Tailscale is connected if:
+        // - Exit code is 0 AND there's output (shows peers)
+        // - Output contains "tailscale0" interface
+        // - Output contains health indicators or backend state
+        const isConnected = code === 0 && output.length > 0 &&
+          (output.includes("tailscale0") ||
+           output.toLowerCase().includes("tailscale is running") ||
+           output.toLowerCase().includes("health:") ||
+           output.toLowerCase().includes("backendstate") ||
+           output.includes("linux"));
 
-        resolve(code === 0 && isConnected);
+        resolve(isConnected);
       });
 
       status.on("error", () => {
@@ -189,12 +231,13 @@ export class TailscaleManager {
   }
 
   /**
-   * Get current status
+   * Get current status - checks actual system status
    */
-  getStatus(): { enabled: boolean; connected: boolean } {
+  async getStatus(): Promise<{ enabled: boolean; connected: boolean }> {
+    const isConnected = await this.checkStatus();
     return {
       enabled: this.config?.enabled ?? false,
-      connected: this.connected,
+      connected: isConnected,
     };
   }
 
