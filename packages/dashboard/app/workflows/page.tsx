@@ -1,9 +1,9 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useSocket } from "@/lib/socket";
 import { useWorkflows } from "@/lib/use-workflows";
-import { Zap, Play, Clock, CheckCircle2, XCircle, AlertCircle, Plus, FileText, History, Box } from "lucide-react";
+import { Zap, Play, Clock, CheckCircle2, XCircle, AlertCircle, Plus, FileText, History, Box, ArrowRight, Trash2, GripVertical, Settings, GitBranch, Webhook, Database, Bell, Mail, MessageSquare, Terminal, FileJson } from "lucide-react";
 import type { WorkflowTemplate, WorkflowRun } from "@/lib/workflows";
 
 const categoryColors: Record<string, string> = {
@@ -12,6 +12,118 @@ const categoryColors: Record<string, string> = {
   marketing: "bg-orange-500/20 text-orange-400",
   other: "bg-zinc-500/20 text-zinc-400",
 };
+
+// Node type icons
+const nodeIcons: Record<string, typeof Zap> = {
+  http_get: Webhook,
+  http_post: Webhook,
+  transform: Terminal,
+  send_notification: Bell,
+  email: Mail,
+  telegram: MessageSquare,
+  database: Database,
+  github: GitBranch,
+  default: Zap,
+};
+
+interface WorkflowNode {
+  id: string;
+  name: string;
+  action: string;
+  config: Record<string, string>;
+}
+
+// Parse YAML to nodes
+function parseYamlToNodes(yaml: string): WorkflowNode[] {
+  const nodes: WorkflowNode[] = [];
+  try {
+    // Simple YAML parsing
+    const lines = yaml.split("\n");
+    let currentNode: Partial<WorkflowNode> | null = null;
+    let inSteps = false;
+    let nodeIndex = 0;
+
+    for (const line of lines) {
+      if (line.includes("steps:")) {
+        inSteps = true;
+        continue;
+      }
+      if (inSteps && line.includes("- name:")) {
+        if (currentNode && currentNode.name) {
+          nodes.push(currentNode as WorkflowNode);
+        }
+        const name = line.replace("- name:", "").trim().replace(/['"]/g, "");
+        currentNode = {
+          id: `node-${nodeIndex++}`,
+          name,
+          action: "default",
+          config: {},
+        };
+      }
+      if (currentNode && line.includes("action:")) {
+        currentNode.action = line.replace("action:", "").trim().replace(/['"]/g, "");
+      }
+      if (currentNode && line.includes("url:")) {
+        currentNode.config = { ...currentNode.config, url: line.replace("url:", "").trim().replace(/['"]/g, "") };
+      }
+    }
+    if (currentNode && currentNode.name) {
+      nodes.push(currentNode as WorkflowNode);
+    }
+  } catch (e) {
+    console.error("Failed to parse YAML:", e);
+  }
+  return nodes;
+}
+
+// Generate YAML from nodes
+function nodesToYaml(nodes: WorkflowNode[]): string {
+  let yaml = `workflow:
+  name: Custom Workflow
+  description: User-defined workflow
+
+steps:
+`;
+  for (const node of nodes) {
+    yaml += `  - name: ${node.name}
+    action: ${node.action}
+`;
+    if (node.config.url) {
+      yaml += `    url: "${node.config.url}"
+`;
+    }
+    if (node.config.input) {
+      yaml += `    input: "${node.config.input}"
+`;
+    }
+    if (node.config.channel) {
+      yaml += `    channel: "${node.config.channel}"
+`;
+    }
+  }
+  return yaml;
+}
+
+// Add a new node
+function addNode(nodes: WorkflowNode[], type: string): WorkflowNode[] {
+  const newNode: WorkflowNode = {
+    id: `node-${Date.now()}`,
+    name: `New ${type}`,
+    action: type,
+    config: {},
+  };
+  return [...nodes, newNode];
+}
+
+// Remove a node
+function removeNode(nodes: WorkflowNode[], id: string): WorkflowNode[] {
+  return nodes.filter((n) => n.id !== id);
+}
+
+// Update a node
+function updateNode(nodes: WorkflowNode[], id: string, updates: Partial<WorkflowNode>): WorkflowNode[] {
+  return nodes.map((n) => (n.id === id ? { ...n, ...updates } : n));
+}
 
 function WorkflowCard({
   template,
@@ -113,17 +225,243 @@ function WorkflowHistoryItem({ run }: { run: WorkflowRun }) {
   );
 }
 
-function CreateWorkflowCard() {
+// Visual Node Component
+function WorkflowNodeCard({
+  node,
+  index,
+  isLast,
+  onUpdate,
+  onRemove,
+}: {
+  node: WorkflowNode;
+  index: number;
+  isLast: boolean;
+  onUpdate: (updates: Partial<WorkflowNode>) => void;
+  onRemove: () => void;
+}) {
+  const Icon = nodeIcons[node.action] || nodeIcons.default;
+  const [showConfig, setShowConfig] = useState(false);
+
   return (
-    <div className="bg-white/[0.03] border border-white/[0.06] border-dashed rounded-2xl p-5 hover:border-violet-500/30 transition-all cursor-pointer group">
-      <div className="flex flex-col items-center justify-center h-full min-h-[200px] gap-3">
-        <div className="w-12 h-12 rounded-xl bg-violet-500/10 flex items-center justify-center group-hover:bg-violet-500/20 transition-colors">
-          <Plus size={24} className="text-violet-400" />
+    <div className="relative">
+      {/* Connector line */}
+      {!isLast && (
+        <div className="absolute left-1/2 -bottom-6 w-0.5 h-6 bg-violet-500/30"></div>
+      )}
+
+      <div className="bg-white/[0.03] border border-white/[0.06] rounded-xl overflow-hidden">
+        {/* Node header */}
+        <div className="flex items-center gap-3 p-3 bg-white/[0.02]">
+          <GripVertical size={16} className="text-white/20 cursor-grab" />
+          <div className="w-8 h-8 rounded-lg bg-violet-500/20 flex items-center justify-center">
+            <Icon size={16} className="text-violet-400" />
+          </div>
+          <input
+            type="text"
+            value={node.name}
+            onChange={(e) => onUpdate({ name: e.target.value })}
+            className="flex-1 bg-transparent text-sm text-white border-none outline-none"
+          />
+          <button
+            onClick={() => setShowConfig(!showConfig)}
+            className="p-1.5 rounded-lg hover:bg-white/5 text-white/40 hover:text-white"
+          >
+            <Settings size={14} />
+          </button>
+          <button
+            onClick={onRemove}
+            className="p-1.5 rounded-lg hover:bg-red-500/10 text-white/40 hover:text-red-400"
+          >
+            <Trash2 size={14} />
+          </button>
         </div>
-        <p className="text-sm text-white/60">Create Custom Workflow</p>
-        <p className="text-xs text-white/30 text-center">
-          Define your own workflow with YAML. Define steps, conditions, and approvals.
-        </p>
+
+        {/* Node body */}
+        <div className="px-3 pb-3">
+          <select
+            value={node.action}
+            onChange={(e) => onUpdate({ action: e.target.value })}
+            className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white/70 outline-none"
+          >
+            <option value="http_get">HTTP GET</option>
+            <option value="http_post">HTTP POST</option>
+            <option value="transform">Transform</option>
+            <option value="send_notification">Send Notification</option>
+            <option value="email">Send Email</option>
+            <option value="telegram">Send Telegram</option>
+            <option value="database">Database Query</option>
+            <option value="github">GitHub Action</option>
+          </select>
+        </div>
+
+        {/* Config panel */}
+        {showConfig && (
+          <div className="px-3 pb-3 pt-0 border-t border-white/5 space-y-2">
+            {node.action.includes("http") && (
+              <input
+                type="text"
+                placeholder="URL"
+                value={node.config.url || ""}
+                onChange={(e) => onUpdate({ config: { ...node.config, url: e.target.value } })}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white placeholder-white/30 outline-none"
+              />
+            )}
+            {node.action === "transform" && (
+              <input
+                type="text"
+                placeholder="Input (e.g., ${step1.output})"
+                value={node.config.input || ""}
+                onChange={(e) => onUpdate({ config: { ...node.config, input: e.target.value } })}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white placeholder-white/30 outline-none"
+              />
+            )}
+            {node.action === "send_notification" && (
+              <input
+                type="text"
+                placeholder="Channel (e.g., telegram, slack)"
+                value={node.config.channel || ""}
+                onChange={(e) => onUpdate({ config: { ...node.config, channel: e.target.value } })}
+                className="w-full bg-white/5 border border-white/10 rounded-lg px-2 py-1.5 text-xs text-white placeholder-white/30 outline-none"
+              />
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// Node type selector
+function AddNodeButton({ onAdd }: { onAdd: (type: string) => void }) {
+  const [showMenu, setShowMenu] = useState(false);
+
+  const nodeTypes = [
+    { id: "http_get", name: "HTTP GET", icon: Webhook },
+    { id: "http_post", name: "HTTP POST", icon: Webhook },
+    { id: "transform", name: "Transform", icon: Terminal },
+    { id: "send_notification", name: "Notify", icon: Bell },
+    { id: "email", name: "Email", icon: Mail },
+    { id: "telegram", name: "Telegram", icon: MessageSquare },
+    { id: "database", name: "Database", icon: Database },
+    { id: "github", name: "GitHub", icon: GitBranch },
+  ];
+
+  return (
+    <div className="relative">
+      <button
+        onClick={() => setShowMenu(!showMenu)}
+        className="flex items-center gap-2 px-4 py-2 bg-violet-500/10 hover:bg-violet-500/20 border border-violet-500/20 text-violet-400 rounded-xl text-sm transition-colors"
+      >
+        <Plus size={16} />
+        Add Node
+      </button>
+
+      {showMenu && (
+        <div className="absolute top-full left-0 mt-2 w-48 bg-zinc-900 border border-white/10 rounded-xl overflow-hidden z-10">
+          {nodeTypes.map((type) => (
+            <button
+              key={type.id}
+              onClick={() => {
+                onAdd(type.id);
+                setShowMenu(false);
+              }}
+              className="w-full flex items-center gap-3 px-3 py-2 hover:bg-white/5 text-left text-sm text-white/70 hover:text-white"
+            >
+              <type.icon size={14} />
+              {type.name}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function VisualWorkflowEditor({
+  yaml,
+  onYamlChange,
+}: {
+  yaml: string;
+  onYamlChange: (yaml: string) => void;
+}) {
+  const [nodes, setNodes] = useState<WorkflowNode[]>([]);
+
+  // Sync YAML to nodes when YAML changes externally
+  useEffect(() => {
+    const parsed = parseYamlToNodes(yaml);
+    if (parsed.length > 0) {
+      setNodes(parsed);
+    }
+  }, []);
+
+  const handleAddNode = (type: string) => {
+    const newNodes = addNode(nodes, type);
+    setNodes(newNodes);
+    onYamlChange(nodesToYaml(newNodes));
+  };
+
+  const handleRemoveNode = (id: string) => {
+    const newNodes = removeNode(nodes, id);
+    setNodes(newNodes);
+    onYamlChange(nodesToYaml(newNodes));
+  };
+
+  const handleUpdateNode = (id: string, updates: Partial<WorkflowNode>) => {
+    const newNodes = updateNode(nodes, id, updates);
+    setNodes(newNodes);
+    onYamlChange(nodesToYaml(newNodes));
+  };
+
+  return (
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {/* YAML Editor */}
+      <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <FileText size={16} className="text-violet-400" />
+          <span className="text-sm text-white/70">YAML Code</span>
+        </div>
+        <textarea
+          value={yaml}
+          onChange={(e) => {
+            onYamlChange(e.target.value);
+            setNodes(parseYamlToNodes(e.target.value));
+          }}
+          className="w-full h-96 bg-black/30 border border-white/10 rounded-xl p-4 text-xs text-white font-mono focus:outline-none focus:border-violet-500/50 resize-none"
+          placeholder="Paste your YAML workflow here..."
+        />
+      </div>
+
+      {/* Visual Editor */}
+      <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-4">
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <GitBranch size={16} className="text-violet-400" />
+            <span className="text-sm text-white/70">Visual Flow</span>
+          </div>
+          <AddNodeButton onAdd={handleAddNode} />
+        </div>
+
+        {/* Node canvas */}
+        <div className="h-96 overflow-y-auto space-y-6 p-2">
+          {nodes.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <FileJson size={32} className="text-white/20 mb-2" />
+              <p className="text-sm text-white/40">No nodes yet</p>
+              <p className="text-xs text-white/30">Add a node to start building your workflow</p>
+            </div>
+          ) : (
+            nodes.map((node, index) => (
+              <WorkflowNodeCard
+                key={node.id}
+                node={node}
+                index={index}
+                isLast={index === nodes.length - 1}
+                onUpdate={(updates) => handleUpdateNode(node.id, updates)}
+                onRemove={() => handleRemoveNode(node.id)}
+              />
+            ))
+          )}
+        </div>
       </div>
     </div>
   );
@@ -134,7 +472,22 @@ export default function WorkflowsPage() {
   const { templates, history, running, fetchTemplates, fetchHistory, runWorkflow } = useWorkflows();
   const [activeTab, setActiveTab] = useState<"templates" | "create" | "history">("templates");
   const [selectedWorkflow, setSelectedWorkflow] = useState<WorkflowTemplate | null>(null);
-  const [customYaml, setCustomYaml] = useState("");
+  const [customYaml, setCustomYaml] = useState(`workflow:
+  name: My Custom Workflow
+  description: Example workflow
+
+steps:
+  - name: Fetch Data
+    action: http_get
+    url: https://api.example.com/data
+
+  - name: Process
+    action: transform
+    input: \${step1.output}
+
+  - name: Notify
+    action: send_notification
+    channel: telegram`);
   const [runStatus, setRunStatus] = useState<{ success?: boolean; message?: string } | null>(null);
 
   useEffect(() => {
@@ -170,7 +523,7 @@ export default function WorkflowsPage() {
 
   return (
     <div className="p-6">
-      <div className="max-w-6xl mx-auto">
+      <div className="max-w-7xl mx-auto">
         {/* Header */}
         <div className="flex items-center justify-between mb-8">
           <div>
@@ -252,43 +605,10 @@ export default function WorkflowsPage() {
 
         {/* Create Tab */}
         {activeTab === "create" && (
-          <div className="space-y-6">
-            <div className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
-              <div className="flex items-center gap-3 mb-4">
-                <FileText size={20} className="text-violet-400" />
-                <h3 className="text-lg font-light">Custom YAML Workflow</h3>
-              </div>
+          <div className="space-y-4">
+            <VisualWorkflowEditor yaml={customYaml} onYamlChange={setCustomYaml} />
 
-              <p className="text-sm text-white/40 mb-4">
-                Define your workflow using YAML. Here's an example:
-              </p>
-
-              <pre className="bg-black/30 rounded-xl p-4 text-xs text-white/60 font-mono overflow-x-auto mb-4">
-{`workflow:
-  name: My Custom Workflow
-  description: Example workflow
-
-steps:
-  - name: Fetch Data
-    action: http_get
-    url: https://api.example.com/data
-
-  - name: Process
-    action: transform
-    input: \${step1.output}
-
-  - name: Notify
-    action: send_notification
-    channel: telegram`}
-
-              <textarea
-                value={customYaml}
-                onChange={(e) => setCustomYaml(e.target.value)}
-                placeholder="Paste your YAML workflow here..."
-                className="w-full h-64 bg-black/30 border border-white/10 rounded-xl p-4 text-xs text-white font-mono focus:outline-none focus:border-violet-500/50 resize-none"
-              />
-              </pre>
-
+            <div className="flex justify-end">
               <button
                 onClick={handleRunCustom}
                 disabled={!customYaml.trim() || running}
