@@ -37,12 +37,8 @@ class OrchestrationHandler(BaseHTTPRequestHandler):
             if not self.flow:
                 self.flow = create_flow(self.persistence)
             board = self.flow.get_kanban_board()
-            # Convert to serializable format
-            board_serializable = {
-                status: [task.model_dump() for task in tasks]
-                for status, tasks in board.items()
-            }
-            self._send_json(200, board_serializable)
+            # Convert to serializable format (already dicts now)
+            self._send_json(200, board)
         elif path == '/status':
             # Get current flow status
             state = self.persistence.load_state()
@@ -77,9 +73,6 @@ class OrchestrationHandler(BaseHTTPRequestHandler):
             result = self.flow.run(inputs={
                 "user_request": user_request,
             })
-
-            # Save state
-            self.persistence.save_state(self.flow.state)
 
             self._send_json(200, {
                 "status": "started",

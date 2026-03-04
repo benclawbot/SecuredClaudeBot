@@ -21,6 +21,8 @@ import {
   triggerOrchestration,
 } from "./orchestration/chat-integration.js";
 import { QmdStore } from "./qmd/store.js";
+import { transcribeBuffer } from "./voice/whisper.js";
+import { getBotSystemPrompt } from "./bot/context.js";
 import type { AppConfig } from "./config/schema.js";
 
 const log = createChildLogger("gateway");
@@ -98,6 +100,9 @@ async function main() {
     agents: null,
     qmd: null,
   };
+
+  // Load bot identity, role, and memories for system prompt
+  const botSystemPrompt = getBotSystemPrompt();
 
   // Initialize Telegram bot if token is configured
   let telegramBot: TelegramBot | null = null;
@@ -258,7 +263,7 @@ async function main() {
         io.to(session.id).emit("chat:stream:start", { sessionId: session.id });
 
         let fullResponse = "";
-        for await (const chunk of llmRouter.stream(messages, session.id)) {
+        for await (const chunk of llmRouter.stream(messages, session.id, botSystemPrompt)) {
           fullResponse += chunk;
           io.to(session.id).emit("chat:stream:chunk", {
             sessionId: session.id,
@@ -729,6 +734,41 @@ async function main() {
         socket.emit("qmd:results", { results });
       } catch (err) {
         socket.emit("qmd:results", { error: String(err) });
+      }
+    });
+
+    // ── Voice Transcription ──
+    socket.on("voice:transcribe", async (data: { audio: string }) => {
+      try {
+        // audio is base64 encoded
+        const buffer = Buffer.from(data.audio, "base64");
+        const result = await transcribeBuffer(buffer);
+        socket.emit("voice:transcription", { text: result.text });
+      } catch (err) {
+        log.error({ err }, "Voice transcription failed");
+        socket.emit("voice:transcription", { error: String(err) });
+      }
+    });
+
+    // ── File Upload ──
+    socket.on("file:upload", async (data: { filename: string; content: string; type: string }) => {
+      try {
+        // content is base64 encoded
+        const buffer = Buffer.from(data.content, "base64");
+        const filename = data.filename;
+
+        // Check if it's an image
+        const isImage = data.type.startsWith("image/");
+
+        socket.emit("file:uploaded", {
+          filename,
+          isImage,
+          size: buffer.length,
+          status: "received",
+        });
+      } catch (err) {
+        log.error({ err }, "File upload failed");
+        socket.emit("file:uploaded", { error: String(err) });
       }
     });
 

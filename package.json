@@ -2,7 +2,7 @@
   "name": "secureclaudebot",
   "version": "0.1.0",
   "private": true,
-  "description": "Ultra-secure personal AI gateway \u2014 Telegram + Mission Control dashboard",
+  "description": "Ultra-secure personal AI gateway — Telegram + Mission Control dashboard",
   "scripts": {
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
@@ -21,5 +21,8 @@
       "esbuild",
       "sharp"
     ]
+  },
+  "devDependencies": {
+    "tsx": "^4.21.0"
   }
 }

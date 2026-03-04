@@ -2,6 +2,7 @@ import { Bot, type Context } from "grammy";
 import { createChildLogger } from "../logger/index.js";
 import { ApprovalManager } from "./approval.js";
 import { chunkMessage } from "./chunker.js";
+import { getBotSystemPrompt } from "../bot/context.js";
 import type { GatewayContext } from "../index.js";
 
 const log = createChildLogger("telegram");
@@ -14,10 +15,12 @@ export class TelegramBot {
   private approval: ApprovalManager;
   private reconnectAttempts = 0;
   private running = false;
+  private systemPrompt: string | undefined;
 
   constructor(private ctx: GatewayContext) {
     this.bot = new Bot(ctx.config.telegram.botToken);
     this.approval = new ApprovalManager(ctx.config.telegram.approvedUsers);
+    this.systemPrompt = getBotSystemPrompt();
     this.setupHandlers();
   }
 
@@ -148,7 +151,7 @@ export class TelegramBot {
         }));
 
         let fullResponse = "";
-        for await (const chunk of this.ctx.llmRouter.stream(messages, session.id)) {
+        for await (const chunk of this.ctx.llmRouter.stream(messages, session.id, this.systemPrompt)) {
           fullResponse += chunk;
           this.ctx.io.to(session.id).emit("chat:stream:chunk", {
             sessionId: session.id,
