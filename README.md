@@ -16,6 +16,10 @@ Ultra-secure personal AI gateway inspired by OpenClaw. Runs on Android (Termux) 
 - **OAuth Integration** - Google, Microsoft, GitHub authentication
 - **Audit Logging** - Full activity tracking
 - **Security Hardened** - SSRF blocking, path traversal prevention, rate limiting
+- **Voice Input** - Whisper transcription for voice notes
+- **Command Autocomplete** - Type `/` in chat to see available commands
+- **File Attachments** - Paste images or attach files in chat
+- **Bot Identity** - Customizable personality via identity, role, and memories
 
 ## Architecture
 
@@ -205,6 +209,19 @@ Trigger orchestration from:
 2. **Chat** - Use keywords like "build a project" or commands like `/delegate`
 
 The chatbot will detect delegation requests and start the orchestration workflow.
+
+## Bot Identity
+
+Customize your chatbot's personality by editing files in `data/bot/`:
+
+- `identity.md` - Defines who the chatbot is (personality, tone, values)
+- `role.md` - Defines capabilities and available tools
+- `memories.md` - Learned information and user preferences
+
+The bot's identity is loaded as a system prompt, so the chatbot will:
+- Adopt the defined personality and communication style
+- Use the tools and capabilities listed in role.md
+- Reference memories when interacting
 
 ## QMD Search
 
