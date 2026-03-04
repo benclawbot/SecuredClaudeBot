@@ -42,8 +42,6 @@ export const llmConfigSchema = z.object({
 });
 
 export const securityConfigSchema = z.object({
-  /** PIN used to derive encryption key */
-  pin: z.string().min(4).optional(),
   /** Paths the shell module is allowed to access */
   shellAllowedPaths: z.array(z.string()).default([]),
   /** Executables the shell module can spawn */
@@ -52,7 +50,7 @@ export const securityConfigSchema = z.object({
     .default(["git", "node", "npm", "pnpm", "npx", "ls", "cat", "echo"]),
   /** Dashboard rate limit: max requests per minute per JWT */
   dashboardRateLimit: z.number().default(60),
-  /** JWT secret (auto-generated if not set) */
+  /** JWT secret (auto-generated on first run) */
   jwtSecret: z.string().optional(),
 });
 

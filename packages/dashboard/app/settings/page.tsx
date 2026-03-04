@@ -49,11 +49,6 @@ export default function SettingsPage() {
   const [tailscaleConnected, setTailscaleConnected] = useState(false);
   const [tailscaleIp, setTailscaleIp] = useState<string | null>(null);
 
-  // Security
-  const [currentPin, setCurrentPin] = useState("");
-  const [newPin, setNewPin] = useState("");
-  const [confirmPin, setConfirmPin] = useState("");
-
   // Voice Settings
   const [voiceEnabled, setVoiceEnabled] = useState(true);
   const [voiceProvider, setVoiceProvider] = useState("gtts");
@@ -177,22 +172,6 @@ export default function SettingsPage() {
     // Request initial voice status
     socket.emit("voice:status:request");
 
-    // PIN change response
-    socket.on("settings:pin-changed", (data: { success: boolean; error?: string; restartRequired?: boolean }) => {
-      if (data.success) {
-        if (data.restartRequired) {
-          alert("PIN changed successfully. Please restart the gateway for the new PIN to take effect.");
-        } else {
-          showSaved("pin");
-        }
-      } else {
-        alert(data.error || "Failed to change PIN");
-      }
-      setCurrentPin("");
-      setNewPin("");
-      setConfirmPin("");
-    });
-
     // OAuth status
     socket.on("oauth:status", (data: { google: boolean; microsoft: boolean; github: boolean }) => {
       setGoogleConnected(data.google);
@@ -250,7 +229,6 @@ export default function SettingsPage() {
       socket.off("tailscale:disconnected");
       socket.off("voice:status");
       socket.off("voice:test:result");
-      socket.off("settings:pin-changed");
       socket.off("oauth:status");
       socket.off("oauth:connected");
       socket.off("oauth:disconnected");
@@ -292,23 +270,6 @@ export default function SettingsPage() {
       },
     });
     showSaved("telegram");
-  };
-
-  const handleChangePin = (e: FormEvent) => {
-    e.preventDefault();
-    if (newPin !== confirmPin) {
-      alert("PINs do not match");
-      return;
-    }
-    if (newPin.length < 4) {
-      alert("PIN must be at least 4 characters");
-      return;
-    }
-    if (!socket || !connected) return;
-    socket.emit("settings:change-pin", {
-      currentPin,
-      newPin,
-    });
   };
 
   return (
@@ -884,69 +845,6 @@ export default function SettingsPage() {
               className="px-5 py-2.5 bg-violet-500 hover:bg-violet-400 disabled:bg-white/10 disabled:text-white/30 text-black text-sm font-medium rounded-xl transition-colors"
             >
               Update Auth Token
-            </button>
-          </form>
-        </section>
-
-        {/* PIN Change */}
-        <section className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
-          <div className="flex items-center justify-between mb-6">
-            <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-xl bg-amber-500/10 flex items-center justify-center">
-                <Lock size={20} className="text-amber-400" />
-              </div>
-              <div>
-                <h3 className="text-lg font-light">Encryption PIN</h3>
-                <p className="text-xs text-white/40">Secure your stored secrets</p>
-              </div>
-            </div>
-            {savedSection === "pin" && (
-              <span className="flex items-center gap-1 text-xs text-emerald-400">
-                <Check size={14} /> PIN changed
-              </span>
-            )}
-          </div>
-          <p className="text-xs text-white/30 mb-6">
-            The PIN is used to derive the encryption key (PBKDF2 + AES-256-GCM) for all stored secrets.
-          </p>
-          <form onSubmit={handleChangePin} className="space-y-4">
-            <div>
-              <label className="block text-xs text-white/40 mb-2">Current PIN</label>
-              <input
-                type="password"
-                value={currentPin}
-                onChange={(e) => setCurrentPin(e.target.value)}
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50 transition-colors"
-              />
-            </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <label className="block text-xs text-white/40 mb-2">New PIN</label>
-                <input
-                  type="password"
-                  value={newPin}
-                  onChange={(e) => setNewPin(e.target.value)}
-                  minLength={4}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50 transition-colors"
-                />
-              </div>
-              <div>
-                <label className="block text-xs text-white/40 mb-2">Confirm PIN</label>
-                <input
-                  type="password"
-                  value={confirmPin}
-                  onChange={(e) => setConfirmPin(e.target.value)}
-                  minLength={4}
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-amber-500/50 transition-colors"
-                />
-              </div>
-            </div>
-            <button
-              type="submit"
-              disabled={!connected || !currentPin || !newPin || !confirmPin}
-              className="px-5 py-2.5 bg-amber-500 hover:bg-amber-400 disabled:bg-white/10 disabled:text-white/30 text-black text-sm font-medium rounded-xl transition-colors"
-            >
-              Change PIN
             </button>
           </form>
         </section>

@@ -79,7 +79,7 @@ async function main() {
 
   // Initialize core services
   const sessions = new SessionManager();
-  const keyStore = new KeyStore(db, config.security.pin ?? "default-pin");
+  const keyStore = new KeyStore(db, config.security.jwtSecret ?? "default-key");
   const audit = new AuditLog(db);
   const rateLimiter = new RateLimiter(config.telegram.rateLimit);
   const dashboardRateLimiter = new RateLimiter(
@@ -240,35 +240,22 @@ async function main() {
     log.info({ socketId: socket.id, actor: user?.sub }, "Client connected");
 
     // ── Authentication ──
-    socket.on("auth:login", async (data: { pin: string }, callback?: (response: { token?: string; error?: string }) => void) => {
-      // Verify PIN
-      const storedPin = config.security.pin;
-      if (!storedPin) {
-        const error = "No PIN configured. Complete setup first.";
+    // JWT-based auth - no PIN required
+    socket.on("auth:login", async (_data: unknown, callback?: (response: { token?: string; error?: string }) => void) => {
+      // Check if JWT secret is configured
+      if (!config.security.jwtSecret) {
+        const error = "No JWT secret configured. Complete setup first.";
         if (callback) callback({ error });
         else socket.emit("auth:error", { error });
         return;
       }
 
-      if (data.pin !== storedPin) {
-        log.warn({ socketId: socket.id }, "Failed PIN login attempt");
-        audit.log({
-          event: "auth.login_failed",
-          actor: socket.id,
-          detail: "Invalid PIN via dashboard",
-        });
-        const error = "Invalid PIN";
-        if (callback) callback({ error });
-        else socket.emit("auth:error", { error });
-        return;
-      }
-
-      // PIN correct - issue JWT token
-      const token = issueToken("dashboard_user", jwtSecret!, "web");
+      // Issue JWT token
+      const token = issueToken("dashboard_user", config.security.jwtSecret, "web");
       (socket as any).authenticated = true;
       (socket as any).user = { sub: "dashboard_user", origin: "web" };
 
-      log.info({ socketId: socket.id }, "User authenticated via PIN");
+      log.info({ socketId: socket.id }, "User authenticated via JWT");
       audit.log({
         event: "auth.login",
         actor: "dashboard_user",
@@ -419,8 +406,6 @@ async function main() {
     });
 
     socket.on("setup:complete", async (data: {
-      pin: string;
-      jwtSecret?: string;
       telegramToken?: string;
       llmProvider: string;
       llmModel: string;
@@ -428,14 +413,10 @@ async function main() {
       baseUrl?: string;
     }) => {
       try {
-        // Update config
-        if (data.pin) config.security.pin = data.pin;
-        // Auto-generate JWT secret if not provided
-        if (!config.security.jwtSecret || config.security.jwtSecret === "auto-generated-secret-change-in-production") {
-          config.security.jwtSecret = generateJwtSecret();
-        } else if (data.jwtSecret) {
-          config.security.jwtSecret = data.jwtSecret;
-        }
+        // Always generate new JWT secret for fresh setup
+        const jwtSecret = generateJwtSecret();
+        config.security.jwtSecret = jwtSecret;
+
         if (data.telegramToken) config.telegram.botToken = data.telegramToken;
         if (data.llmProvider) config.llm.primary.provider = data.llmProvider as any;
         if (data.llmModel) config.llm.primary.model = data.llmModel;
@@ -446,8 +427,11 @@ async function main() {
         const { saveConfig } = await import("./config/loader.js");
         saveConfig(config);
 
+        // Issue JWT token to return to dashboard
+        const token = issueToken("dashboard_user", jwtSecret, "web");
+
         log.info({ provider: data.llmProvider, model: data.llmModel }, "Setup completed");
-        socket.emit("setup:done", { success: true });
+        socket.emit("setup:done", { success: true, token: token, jwtSecret: jwtSecret });
       } catch (err) {
         log.error({ err }, "Setup failed");
         socket.emit("setup:done", { success: false, error: String(err) });
@@ -638,39 +622,6 @@ async function main() {
           detail: `Settings section "${data.section}" updated via dashboard`,
         });
         socket.emit("settings:saved", { section: data.section, success: true });
-      }
-    );
-
-    socket.on(
-      "settings:change-pin",
-      (data: { currentPin: string; newPin: string }) => {
-        const storedPin = config.security.pin;
-
-        // Validate current PIN
-        if (data.currentPin !== storedPin) {
-          log.warn("PIN change failed: current PIN does not match");
-          socket.emit("settings:pin-changed", { success: false, error: "Current PIN is incorrect" });
-          return;
-        }
-
-        // Validate new PIN
-        if (!data.newPin || data.newPin.length < 4) {
-          socket.emit("settings:pin-changed", { success: false, error: "New PIN must be at least 4 characters" });
-          return;
-        }
-
-        // Save new PIN to config
-        config.security.pin = data.newPin;
-        saveConfig(config);
-
-        log.info("PIN changed successfully - restart required for new PIN to take effect");
-        audit.log({
-          event: "config.changed",
-          actor: socket.id,
-          detail: "PIN changed via dashboard - restart required",
-        });
-
-        socket.emit("settings:pin-changed", { success: true, restartRequired: true });
       }
     );
 
@@ -1694,7 +1645,7 @@ async function getSystemStatus(ctx: GatewayContext) {
     : "inactive";
 
   // Check Auth/JWT status
-  const authStatus = ctx.config.security.jwtSecret && ctx.config.security.pin
+  const authStatus = ctx.config.security.jwtSecret
     ? "active"
     : "inactive";
 

@@ -18,7 +18,7 @@ const PROVIDER_MODELS: Record<string, string[]> = {
   custom: ["MiniMax-M2.5", "any model name"],
 };
 
-type Step = "welcome" | "pin" | "telegram" | "llm" | "verify" | "complete";
+type Step = "welcome" | "telegram" | "llm" | "verify" | "complete";
 
 export default function SetupPage() {
   const { socket, connected } = useSocket();
@@ -28,9 +28,6 @@ export default function SetupPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Form data
-  const [pin, setPin] = useState("");
-  const [confirmPin, setConfirmPin] = useState("");
-  // JWT secret is auto-generated on server
   const [telegramToken, setTelegramToken] = useState("");
   const [llmProvider, setLlmProvider] = useState("anthropic");
   const [llmModel, setLlmModel] = useState("");
@@ -57,18 +54,6 @@ export default function SetupPage() {
 
     switch (step) {
       case "welcome":
-        setStep("pin");
-        break;
-      case "pin":
-        if (pin.length < 4) {
-          setError("PIN must be at least 4 characters");
-          return;
-        }
-        if (pin !== confirmPin) {
-          setError("PINs do not match");
-          return;
-        }
-        // JWT secret is auto-generated on server, skip that step
         setStep("telegram");
         break;
       case "telegram":
@@ -98,7 +83,6 @@ export default function SetupPage() {
     setError(null);
 
     socket.emit("setup:complete", {
-      pin,
       telegramToken: telegramToken || undefined,
       llmProvider,
       llmModel,
@@ -106,9 +90,16 @@ export default function SetupPage() {
       baseUrl: llmBaseUrl || undefined,
     });
 
-    socket.on("setup:done", (data: { success: boolean; error?: string }) => {
+    socket.on("setup:done", (data: { success: boolean; error?: string; token?: string; jwtSecret?: string }) => {
       setLoading(false);
       if (data.success) {
+        // Store the JWT token and jwtSecret for future logins
+        if (data.token) {
+          localStorage.setItem("gateway_token", data.token);
+        }
+        if (data.jwtSecret) {
+          localStorage.setItem("jwt_secret", data.jwtSecret);
+        }
         // Mark setup as completed in localStorage
         localStorage.setItem("setup_completed", "true");
         setStep("complete");
@@ -126,7 +117,6 @@ export default function SetupPage() {
 
   const steps: { id: Step; label: string; icon: typeof Shield }[] = [
     { id: "welcome", label: "Welcome", icon: Shield },
-    { id: "pin", label: "Security PIN", icon: Key },
     { id: "telegram", label: "Telegram", icon: Bot },
     { id: "llm", label: "LLM Provider", icon: Key },
     { id: "verify", label: "Verify", icon: Check },
@@ -196,7 +186,7 @@ export default function SetupPage() {
               <h2 className="text-xl font-light text-white mb-4">Welcome to FastBot</h2>
               <p className="text-sm text-white/50 mb-6">
                 Let's set up your secure AI gateway in just a few steps.
-                You'll configure your encryption PIN, connect Telegram, and set up your LLM provider.
+                You'll configure Telegram, set up your LLM provider, and secure your dashboard with JWT authentication.
               </p>
               <div className="space-y-3 text-left bg-white/5 rounded-xl p-4 mb-6">
                 <div className="flex items-center gap-3 text-sm text-white/70">
@@ -210,40 +200,6 @@ export default function SetupPage() {
                 <div className="flex items-center gap-3 text-sm text-white/70">
                   <Key size={16} className="text-emerald-400" />
                   <span>Multiple LLM provider support</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {/* PIN Step */}
-          {step === "pin" && (
-            <div>
-              <h2 className="text-lg font-light text-white mb-2">Create Encryption PIN</h2>
-              <p className="text-xs text-white/40 mb-6">
-                This PIN encrypts all your API keys and secrets using AES-256-GCM.
-              </p>
-
-              <div className="space-y-4">
-                <div>
-                  <label className="block text-xs text-white/40 mb-2">Enter PIN</label>
-                  <input
-                    type="password"
-                    value={pin}
-                    onChange={(e) => setPin(e.target.value)}
-                    placeholder="Min 4 characters"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-emerald-500/50"
-                    autoFocus
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs text-white/40 mb-2">Confirm PIN</label>
-                  <input
-                    type="password"
-                    value={confirmPin}
-                    onChange={(e) => setConfirmPin(e.target.value)}
-                    placeholder="Confirm your PIN"
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-emerald-500/50"
-                  />
                 </div>
               </div>
             </div>
@@ -369,10 +325,6 @@ export default function SetupPage() {
 
               <div className="bg-white/5 rounded-xl p-4 space-y-3 mb-6">
                 <div className="flex justify-between">
-                  <span className="text-xs text-white/40">Security PIN</span>
-                  <span className="text-xs text-white">{"*".repeat(pin.length)}</span>
-                </div>
-                <div className="flex justify-between">
                   <span className="text-xs text-white/40">Telegram</span>
                   <span className="text-xs text-white">{telegramToken ? "Configured" : "Skipped"}</span>
                 </div>
@@ -387,6 +339,10 @@ export default function SetupPage() {
                 <div className="flex justify-between">
                   <span className="text-xs text-white/40">API Key</span>
                   <span className="text-xs text-white">{llmApiKey ? "Configured" : "Not set"}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-xs text-white/40">Auth</span>
+                  <span className="text-xs text-emerald-400">JWT (auto-generated)</span>
                 </div>
               </div>
 
@@ -423,10 +379,9 @@ export default function SetupPage() {
                 <button
                   onClick={() => {
                     setError(null);
-                    if (step === "telegram") setStep("pin");
+                    if (step === "telegram") setStep("welcome");
                     else if (step === "llm") setStep("telegram");
                     else if (step === "verify") setStep("llm");
-                    else setStep("welcome");
                   }}
                   className="flex-1 px-5 py-3 bg-white/5 hover:bg-white/10 border border-white/10 text-white text-sm font-medium rounded-xl transition-colors"
                 >
