@@ -12,7 +12,8 @@
     "gateway": "pnpm --filter @fastbot/gateway run dev",
     "playwright": "pnpm --filter @fastbot/playwright run dev",
     "start": "pnpm -r --parallel run start",
-    "setup": "pnpm install && pnpm build"
+    "setup": "pnpm install && pnpm build",
+    "launch": "node scripts/launch.js"
   },
   "packageManager": "pnpm@10.30.3",
   "pnpm": {

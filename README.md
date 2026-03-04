@@ -113,6 +113,7 @@ cd FastBot
 pnpm install
 pnpm approve-builds  # Press y to approve all
 pnpm build
+pnpm launch          # Choose dev/prod, browser opens automatically
 ```
 
 #### macOS
@@ -132,6 +133,7 @@ cd FastBot
 pnpm install
 pnpm approve-builds  # Press y to approve all
 pnpm build
+pnpm launch          # Choose dev/prod, browser opens automatically
 ```
 
 #### Android (Termux)
@@ -150,6 +152,7 @@ git clone https://github.com/benclawbot/FastBot.git
 cd FastBot
 pnpm install --ignore-scripts
 pnpm build
+pnpm launch          # Choose dev/prod, browser opens automatically
 ```
 
 #### Windows WSL
@@ -176,21 +179,26 @@ wsl --install
 
 ### Running FastBot
 
-**Development mode:**
+After installation, use the launch command to start FastBot:
+
+```bash
+pnpm launch
+```
+
+This will:
+1. Ask you to choose **Development** or **Production** mode
+2. Start the selected mode
+3. Automatically open your browser to the dashboard at `http://localhost:3100`
+
+**Manual start (Development):**
 ```bash
 pnpm dev
 ```
 
-**Production mode (recommended for deployment):**
+**Manual start (Production):**
 ```bash
-# Start all services with PM2
 npx pm2 start ecosystem.config.js
-
-# View logs
 npx pm2 logs
-
-# Restart services
-npx pm2 restart all
 ```
 
 ### First Run - Setup Wizard
