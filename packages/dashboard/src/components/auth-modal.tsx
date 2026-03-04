@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { Lock, Eye, EyeOff } from "lucide-react";
@@ -11,7 +11,15 @@ export function AuthModal() {
   const [error, setError] = useState("");
   const [showPin, setShowPin] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [isFirstTime, setIsFirstTime] = useState(false);
   const router = useRouter();
+
+  // Check if PIN has been configured
+  useEffect(() => {
+    // Check localStorage for first-time indicator
+    const hasCompletedSetup = localStorage.getItem("setup_completed");
+    setIsFirstTime(!hasCompletedSetup);
+  }, []);
 
   // Don't show modal if loading, already authenticated, or on setup page
   if (loading || authenticated || typeof window === "undefined") {
@@ -32,6 +40,9 @@ export function AuthModal() {
     if (!success) {
       setError("Invalid PIN");
       setPin("");
+    } else {
+      // Mark setup as completed after first successful login
+      localStorage.setItem("setup_completed", "true");
     }
     setSubmitting(false);
   };
@@ -45,7 +56,9 @@ export function AuthModal() {
           </div>
           <div>
             <h2 className="text-xl font-light">FastBot</h2>
-            <p className="text-sm text-white/40">Enter your PIN to continue</p>
+            <p className="text-sm text-white/40">
+              {isFirstTime ? "Choose a PIN to access your dashboard" : "Enter your PIN to continue"}
+            </p>
           </div>
         </div>
 
@@ -55,7 +68,7 @@ export function AuthModal() {
               type={showPin ? "text" : "password"}
               value={pin}
               onChange={(e) => setPin(e.target.value)}
-              placeholder="Enter PIN"
+              placeholder={isFirstTime ? "Choose a PIN (min 4 characters)" : "Enter PIN"}
               className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 pr-12 text-lg tracking-widest focus:outline-none focus:border-emerald-500/50 transition-colors"
               maxLength={20}
               autoFocus
@@ -78,12 +91,12 @@ export function AuthModal() {
             disabled={pin.length < 4 || submitting}
             className="w-full bg-emerald-500 hover:bg-emerald-400 disabled:bg-white/10 disabled:text-white/40 text-black font-medium py-3 rounded-xl transition-colors"
           >
-            {submitting ? "Verifying..." : "Unlock"}
+            {submitting ? "Verifying..." : (isFirstTime ? "Set PIN" : "Unlock")}
           </button>
         </form>
 
         <p className="text-center text-white/30 text-sm mt-6">
-          PIN set during first-time setup
+          {isFirstTime ? "Choose a PIN you'll remember" : "PIN set during first-time setup"}
         </p>
       </div>
     </div>

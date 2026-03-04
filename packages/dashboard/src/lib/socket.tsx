@@ -86,7 +86,13 @@ export function SocketProvider({ children }: { children: ReactNode }) {
     if (!socketRef.current) return false;
 
     return new Promise((resolve) => {
+      // Set a timeout in case the server doesn't respond
+      const timeout = setTimeout(() => {
+        resolve(false);
+      }, 5000);
+
       socketRef.current!.emit("auth:login", { pin }, (response: { token?: string; error?: string }) => {
+        clearTimeout(timeout);
         if (response.token) {
           storeToken(response.token);
           setAuthenticated(true);

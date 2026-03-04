@@ -109,6 +109,8 @@ export default function SetupPage() {
     socket.on("setup:done", (data: { success: boolean; error?: string }) => {
       setLoading(false);
       if (data.success) {
+        // Mark setup as completed in localStorage
+        localStorage.setItem("setup_completed", "true");
         setStep("complete");
       } else {
         setError(data.error || "Setup failed");
