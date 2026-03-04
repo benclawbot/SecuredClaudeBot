@@ -799,7 +799,7 @@ async function main() {
     });
 
     // Start GitHub OAuth flow
-    socket.on("oauth:github:start", async () => {
+    socket.on("oauth:github:start", async (data?: { origin?: string }) => {
       const githubConfig = config.github;
       if (!githubConfig?.clientId || !githubConfig?.clientSecret) {
         socket.emit("oauth:error", { provider: "github", error: "GitHub OAuth not configured" });
@@ -807,8 +807,9 @@ async function main() {
       }
 
       try {
-        // GitHub only allows one callback URL, so use publicHost
-        const redirectUri = `http://${getOAuthHost()}:${config.server.dashboardPort}/oauth/github/callback`;
+        // Use client-provided origin if available, otherwise fall back to publicHost
+        const baseUrl = data?.origin || `http://${getOAuthHost()}:${config.server.dashboardPort}`;
+        const redirectUri = `${baseUrl}/oauth/github/callback`;
         const scopes = githubConfig.scopes?.join(" ") || "read:user repo gist";
         const authUrl = `https://github.com/login/oauth/authorize?client_id=${githubConfig.clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scopes)}`;
         socket.emit("oauth:github:url", { url: authUrl, redirectUri });
