@@ -407,6 +407,7 @@ async function main() {
 
     socket.on("setup:complete", async (data: {
       pin: string;
+      jwtSecret: string;
       telegramToken?: string;
       llmProvider: string;
       llmModel: string;
@@ -416,6 +417,7 @@ async function main() {
       try {
         // Update config
         if (data.pin) config.security.pin = data.pin;
+        if (data.jwtSecret) config.security.jwtSecret = data.jwtSecret;
         if (data.telegramToken) config.telegram.botToken = data.telegramToken;
         if (data.llmProvider) config.llm.primary.provider = data.llmProvider as any;
         if (data.llmModel) config.llm.primary.model = data.llmModel;
@@ -453,6 +455,32 @@ async function main() {
     });
 
     // ── Settings ──
+    // Request current settings
+    socket.on("settings:request", (data: { section: string }) => {
+      if (data.section === "llm") {
+        // Send LLM settings (without exposing API key)
+        socket.emit("settings:data", {
+          section: "llm",
+          data: {
+            primary: {
+              provider: config.llm.primary?.provider || "",
+              model: config.llm.primary?.model || "",
+              baseUrl: config.llm.primary?.baseUrl || "",
+              // Don't send apiKey - user needs to re-enter
+            },
+          },
+        });
+      } else if (data.section === "telegram") {
+        socket.emit("settings:data", {
+          section: "telegram",
+          data: {
+            botToken: config.telegram.botToken ? "********" : "",
+            approvedUsers: config.telegram.approvedUsers?.join(", ") || "",
+          },
+        });
+      }
+    });
+
     socket.on(
       "settings:update",
       async (data: { section: string; data: Record<string, unknown> }) => {
@@ -506,6 +534,28 @@ async function main() {
           saveConfig(ctx.config);
 
           log.info("Telegram config updated - restart gateway to apply");
+        }
+
+        if (data.section === "authToken" && data.data) {
+          const authData = data.data as Record<string, unknown>;
+          const newSecret = authData.jwtSecret as string;
+
+          if (newSecret && newSecret.length >= 16) {
+            ctx.config.security.jwtSecret = newSecret;
+            saveConfig(ctx.config);
+            log.info("Auth token updated");
+            socket.emit("settings:saved", {
+              section: "authToken",
+              success: true,
+            });
+          } else {
+            socket.emit("settings:saved", {
+              section: "authToken",
+              success: false,
+              error: "Auth token must be at least 16 characters",
+            });
+          }
+          return;
         }
 
         if (data.section === "playwright" && data.data) {

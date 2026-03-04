@@ -18,7 +18,7 @@ const PROVIDER_MODELS: Record<string, string[]> = {
   custom: ["MiniMax-M2.5", "any model name"],
 };
 
-type Step = "welcome" | "pin" | "telegram" | "llm" | "verify" | "complete";
+type Step = "welcome" | "pin" | "jwt" | "telegram" | "llm" | "verify" | "complete";
 
 export default function SetupPage() {
   const { socket, connected } = useSocket();
@@ -30,6 +30,7 @@ export default function SetupPage() {
   // Form data
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
+  const [jwtSecret, setJwtSecret] = useState("");
   const [telegramToken, setTelegramToken] = useState("");
   const [llmProvider, setLlmProvider] = useState("anthropic");
   const [llmModel, setLlmModel] = useState("");
@@ -67,6 +68,13 @@ export default function SetupPage() {
           setError("PINs do not match");
           return;
         }
+        setStep("jwt");
+        break;
+      case "jwt":
+        if (!jwtSecret || jwtSecret.length < 16) {
+          setError("JWT secret must be at least 16 characters");
+          return;
+        }
         setStep("telegram");
         break;
       case "telegram":
@@ -97,6 +105,7 @@ export default function SetupPage() {
 
     socket.emit("setup:complete", {
       pin,
+      jwtSecret,
       telegramToken: telegramToken || undefined,
       llmProvider,
       llmModel,
@@ -123,6 +132,7 @@ export default function SetupPage() {
   const steps: { id: Step; label: string; icon: typeof Shield }[] = [
     { id: "welcome", label: "Welcome", icon: Shield },
     { id: "pin", label: "Security PIN", icon: Key },
+    { id: "jwt", label: "Auth Token", icon: Key },
     { id: "telegram", label: "Telegram", icon: Bot },
     { id: "llm", label: "LLM Provider", icon: Key },
     { id: "verify", label: "Verify", icon: Check },
@@ -241,6 +251,31 @@ export default function SetupPage() {
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-emerald-500/50"
                   />
                 </div>
+              </div>
+            </div>
+          )}
+
+          {/* JWT Step */}
+          {step === "jwt" && (
+            <div>
+              <h2 className="text-lg font-light text-white mb-2">Authentication Token</h2>
+              <p className="text-xs text-white/40 mb-6">
+                This password is used to sign authentication tokens for dashboard access.
+              </p>
+
+              <div>
+                <label className="block text-xs text-white/40 mb-2">Authentication Token Password</label>
+                <input
+                  type="password"
+                  value={jwtSecret}
+                  onChange={(e) => setJwtSecret(e.target.value)}
+                  placeholder="At least 16 characters"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-emerald-500/50"
+                  autoFocus
+                />
+                <p className="text-[10px] text-white/30 mt-2">
+                  Use a strong, unique password. Keep it safe - you'll need it if your browser storage is cleared.
+                </p>
               </div>
             </div>
           )}
@@ -369,6 +404,10 @@ export default function SetupPage() {
                   <span className="text-xs text-white">{"*".repeat(pin.length)}</span>
                 </div>
                 <div className="flex justify-between">
+                  <span className="text-xs text-white/40">Auth Token</span>
+                  <span className="text-xs text-white">{"*".repeat(Math.min(jwtSecret.length, 12))}</span>
+                </div>
+                <div className="flex justify-between">
                   <span className="text-xs text-white/40">Telegram</span>
                   <span className="text-xs text-white">{telegramToken ? "Configured" : "Skipped"}</span>
                 </div>
@@ -419,7 +458,8 @@ export default function SetupPage() {
                 <button
                   onClick={() => {
                     setError(null);
-                    if (step === "telegram") setStep("pin");
+                    if (step === "jwt") setStep("pin");
+                    else if (step === "telegram") setStep("jwt");
                     else if (step === "llm") setStep("telegram");
                     else if (step === "verify") setStep("llm");
                     else setStep("welcome");

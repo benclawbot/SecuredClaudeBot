@@ -87,6 +87,33 @@ export default function SettingsPage() {
       }
     });
 
+    // Load settings from gateway
+    socket.on("settings:data", (data: { section: string; data: Record<string, unknown> }) => {
+      if (data.section === "llm") {
+        const llmData = data.data.primary as Record<string, string> | undefined;
+        if (llmData) {
+          setLlm(prev => ({
+            ...prev,
+            provider: llmData.provider || prev.provider,
+            model: llmData.model || prev.model,
+            baseUrl: llmData.baseUrl || prev.baseUrl,
+          }));
+        }
+      } else if (data.section === "telegram") {
+        const tgData = data.data as Record<string, string>;
+        if (tgData.botToken && tgData.botToken !== "********") {
+          setTelegramToken(tgData.botToken);
+        }
+        if (tgData.approvedUsers) {
+          setApprovedUsers(tgData.approvedUsers);
+        }
+      }
+    });
+
+    // Request initial settings
+    socket.emit("settings:request", { section: "llm" });
+    socket.emit("settings:request", { section: "telegram" });
+
     // Tailscale status
     socket.on("tailscale:status", (data: { enabled: boolean; connected: boolean; ip?: string }) => {
       setTailscaleConnected(data.connected);
@@ -139,6 +166,7 @@ export default function SettingsPage() {
 
     return () => {
       socket.off("settings:saved");
+      socket.off("settings:data");
       socket.off("tailscale:status");
       socket.off("tailscale:connected");
       socket.off("tailscale:disconnected");
@@ -755,6 +783,64 @@ export default function SettingsPage() {
               <span className="text-sm font-mono text-emerald-400">{tailscaleIp}</span>
             </div>
           )}
+        </section>
+
+        {/* Auth Token Change */}
+        <section className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-violet-500/10 flex items-center justify-center">
+                <Shield size={20} className="text-violet-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-light">Authentication Token</h3>
+                <p className="text-xs text-white/40">Secure dashboard access</p>
+              </div>
+            </div>
+            {savedSection === "authToken" && (
+              <span className="flex items-center gap-1 text-xs text-emerald-400">
+                <Check size={14} /> Token updated
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-white/30 mb-6">
+            This token is used to sign JWT authentication tokens. Minimum 16 characters.
+          </p>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!socket || !connected) return;
+              const formData = new FormData(e.currentTarget);
+              const newToken = formData.get("newAuthToken") as string;
+              if (newToken && newToken.length >= 16) {
+                socket.emit("settings:update", {
+                  section: "authToken",
+                  data: { jwtSecret: newToken },
+                });
+                showSaved("authToken");
+                (e.target as HTMLFormElement).reset();
+              }
+            }}
+            className="space-y-4"
+          >
+            <div>
+              <label className="block text-xs text-white/40 mb-2">New Authentication Token</label>
+              <input
+                type="password"
+                name="newAuthToken"
+                minLength={16}
+                placeholder="At least 16 characters"
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-violet-500/50 transition-colors"
+              />
+            </div>
+            <button
+              type="submit"
+              disabled={!connected}
+              className="px-5 py-2.5 bg-violet-500 hover:bg-violet-400 disabled:bg-white/10 disabled:text-white/30 text-black text-sm font-medium rounded-xl transition-colors"
+            >
+              Update Auth Token
+            </button>
+          </form>
         </section>
 
         {/* PIN Change */}
