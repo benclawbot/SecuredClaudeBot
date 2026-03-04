@@ -34,7 +34,7 @@ export function Sidebar() {
       {/* Logo */}
       <Link href="/" className="h-16 flex items-center justify-center border-b border-white/5">
         <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 flex items-center justify-center shadow-lg shadow-indigo-500/20 overflow-hidden">
-          <img src="/logo.svg" alt="FastBot" className="w-7 h-7 object-contain" />
+          <img src="/logo.jpg" alt="FastBot" className="w-7 h-7 object-contain" />
         </div>
       </Link>
 

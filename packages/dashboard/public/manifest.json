@@ -1,6 +1,6 @@
 {
   "name": "FastBot — Mission Control",
-  "short_name": "SCB",
+  "short_name": "FastBot",
   "description": "Ultra-secure personal AI gateway dashboard",
   "start_url": "/",
   "display": "standalone",
@@ -8,9 +8,9 @@
   "theme_color": "#0a0a0a",
   "icons": [
     {
-      "src": "/logo.svg",
+      "src": "/logo.jpg",
       "sizes": "any",
-      "type": "image/svg+xml",
+      "type": "image/jpeg",
       "purpose": "any maskable"
     }
   ]
