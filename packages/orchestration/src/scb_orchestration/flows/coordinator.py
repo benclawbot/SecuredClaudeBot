@@ -2,7 +2,7 @@
 import uuid
 from typing import Optional
 from crewai import Flow, Task, Agent
-from crewai.flow.flow import persist
+from crewai.flow import persist
 from crewai.flow import listen, start, router
 from ..state import SwarmState, KanbanTask, StatePersistence
 
