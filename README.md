@@ -23,7 +23,7 @@ Ultra-secure personal AI gateway inspired by OpenClaw. Runs on Android (Termux) 
 - **Command Autocomplete** - Type `/` in chat to see available commands
 - **File Attachments** - Paste images or attach files in chat
 - **Bot Identity** - Customizable personality via identity, role, and memories
-- **Port Auto-detection** - Automatically finds available port if configured port is in use
+- **Port Randomization** - Random port (10000-60000) on each startup for security
 - **PM2 Process Manager** - Production-ready process management
 
 ## Screenshots
@@ -103,8 +103,31 @@ cd FastBot
 # Install dependencies
 pnpm install
 
+# Approve native builds (required for sqlite3, canvas, sharp)
+# Press y to approve all, or select individually
+pnpm approve-builds
+
 # Build all packages
 pnpm build
+```
+
+### Running FastBot
+
+**Development mode:**
+```bash
+pnpm dev
+```
+
+**Production mode (recommended):**
+```bash
+# Start all services with PM2
+npx pm2 start ecosystem.config.js
+
+# View logs
+npx pm2 logs
+
+# Restart services
+npx pm2 restart all
 ```
 
 ### First Run - Setup Wizard
@@ -121,14 +144,15 @@ The setup wizard ensures all required settings are configured before using the b
 
 ### Configuration
 
-Alternatively, edit `config.json` in `packages/gateway/`:
+Edit `config.json` in `packages/gateway/`:
 
 ```json
 {
   "server": {
     "port": 18789,
     "dashboardPort": 3100,
-    "host": "127.0.0.1"
+    "host": "127.0.0.1",
+    "randomizePort": true
   },
   "telegram": {
     "botToken": "your_bot_token",
@@ -376,6 +400,17 @@ Use the `qmd:search` socket event to search.
 | `agent.spawned` | Agent spawned |
 | `agent.completed` | Agent completed |
 | `session.created` | New session created |
+
+## Authentication
+
+The dashboard requires PIN-based authentication:
+
+1. **First access**: You'll see a PIN entry modal
+2. **Enter PIN**: Use the PIN set during Setup Wizard (or from `config.json`)
+3. **JWT Token**: After login, a JWT token is stored in localStorage
+4. **Persistent**: Token is automatically used for subsequent visits
+
+The PIN is also used to encrypt sensitive data (API keys) in the keystore.
 
 ## Commands (Telegram)
 
