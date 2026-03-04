@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "python -m src.scb_orchestration",
-    "start": "python -m src.scb_orchestration",
+    "dev": "python3 -m src.scb_orchestration",
+    "start": "python3 -m src.scb_orchestration",
     "test": "pytest"
   },
   "dependencies": {
