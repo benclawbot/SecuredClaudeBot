@@ -15,9 +15,9 @@ module.exports = {
     },
     {
       name: 'dashboard',
-      script: './packages/dashboard/node_modules/next/dist/bin/next',
+      script: 'node_modules/next/dist/bin/next',
       args: 'start',
-      cwd: '.',
+      cwd: './packages/dashboard',
       env: {
         NODE_ENV: 'production',
         PORT: '3100'
