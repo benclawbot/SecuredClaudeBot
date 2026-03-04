@@ -56,10 +56,13 @@ export function listSkills(): InstalledSkill[] {
           // Invalid metadata, skip
         }
       } else {
-        // Try to infer from SKILL.md
+        // Try to infer from SKILL.md or CLAUDE.md
         const skillMdPath = join(skillPath, "SKILL.md");
-        if (existsSync(skillMdPath)) {
-          const content = readFileSync(skillMdPath, "utf-8");
+        const claudeMdPath = join(skillPath, "CLAUDE.md");
+        const skillFile = existsSync(skillMdPath) ? skillMdPath : existsSync(claudeMdPath) ? claudeMdPath : null;
+
+        if (skillFile) {
+          const content = readFileSync(skillFile, "utf-8");
           const name = extractSkillName(entry, content);
           const description = extractSkillDescription(content);
           const tools = extractTools(content);
@@ -190,16 +193,19 @@ export async function installSkill(source: string): Promise<{ success: boolean; 
       return { success: false, error: "Unsupported source. Use GitHub repository URL." };
     }
 
-    // Verify SKILL.md exists
+    // Verify skill file exists (SKILL.md or CLAUDE.md)
     const skillMdPath = join(skillPath, "SKILL.md");
-    if (!existsSync(skillMdPath)) {
+    const claudeMdPath = join(skillPath, "CLAUDE.md");
+    const skillFile = existsSync(skillMdPath) ? skillMdPath : existsSync(claudeMdPath) ? claudeMdPath : null;
+
+    if (!skillFile) {
       // Clean up
       rmSync(skillPath, { recursive: true, force: true });
-      return { success: false, error: "Invalid skill: SKILL.md not found" };
+      return { success: false, error: "Invalid skill: SKILL.md or CLAUDE.md not found" };
     }
 
     // Read and parse skill
-    const content = readFileSync(skillMdPath, "utf-8");
+    const content = readFileSync(skillFile, "utf-8");
     const stat = statSync(skillPath);
 
     const skill: InstalledSkill = {
@@ -278,12 +284,14 @@ export function getSkillForTool(skillId: string): { content?: string; tools?: st
   try {
     const skillPath = resolve(SKILLS_DIR, skillId);
     const skillMdPath = join(skillPath, "SKILL.md");
+    const claudeMdPath = join(skillPath, "CLAUDE.md");
+    const skillFile = existsSync(skillMdPath) ? skillMdPath : existsSync(claudeMdPath) ? claudeMdPath : null;
 
-    if (!existsSync(skillMdPath)) {
+    if (!skillFile) {
       return { error: "Skill not found" };
     }
 
-    const content = readFileSync(skillMdPath, "utf-8");
+    const content = readFileSync(skillFile, "utf-8");
 
     // Also load scripts
     const scriptsDir = join(skillPath, "scripts");
