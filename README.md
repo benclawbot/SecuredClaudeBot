@@ -7,6 +7,7 @@ Ultra-secure personal AI gateway inspired by OpenClaw. Runs on Android (Termux) 
 - **Telegram Bot** - Control your AI agent via Telegram (text and voice)
 - **Multi-Provider LLM Router** - OpenAI, Anthropic, Google, Ollama, MiniMax, Groq, DeepSeek, and more
 - **Web Dashboard** - Next.js PWA for mission control
+- **Setup Wizard** - First-run guided configuration (PIN, Telegram, LLM)
 - **Agents Management** - Create and manage AI agents with persistent memories
 - **Orchestration** - CrewAI Flows for multi-agent task delegation
 - **QMD Search** - Vector search across memories, chat history, and agent files
@@ -17,12 +18,36 @@ Ultra-secure personal AI gateway inspired by OpenClaw. Runs on Android (Termux) 
 - **Audit Logging** - Full activity tracking
 - **Security Hardened** - SSRF blocking, path traversal prevention, rate limiting
 - **Voice Input** - Whisper transcription for voice notes (Telegram & Dashboard)
-- **Voice Output** - TTS synthesis via ElevenLabs or OpenAI
+- **Voice Output** - TTS synthesis via ElevenLabs, OpenAI, or free gTTS
+- **Media Library** - Upload and manage images, videos, audio, and documents
 - **Command Autocomplete** - Type `/` in chat to see available commands
 - **File Attachments** - Paste images or attach files in chat
 - **Bot Identity** - Customizable personality via identity, role, and memories
 - **Port Auto-detection** - Automatically finds available port if configured port is in use
 - **PM2 Process Manager** - Production-ready process management
+
+## Screenshots
+
+### Dashboard Home
+![Dashboard Home](docs/images/dashboard-home.png)
+
+### Chat Interface
+![Chat](docs/images/dashboard-chat.png)
+
+### Settings
+![Settings](docs/images/dashboard-settings.png)
+
+### Media Library
+![Media](docs/images/dashboard-media.png)
+
+### Agents
+![Agents](docs/images/dashboard-agents.png)
+
+### Usage
+![Usage](docs/images/dashboard-usage.png)
+
+### Status
+![Status](docs/images/dashboard-status.png)
 
 ## Architecture
 
@@ -39,19 +64,21 @@ Ultra-secure personal AI gateway inspired by OpenClaw. Runs on Android (Termux) 
 │  └── Security: SSRF, path traversal, rate limiting      │
 ├─────────────────────────────────────────────────────────────┤
 │  packages/dashboard   — Next.js 14 PWA                    │
+│  ├── Setup wizard for first-run configuration           │
 │  ├── Kanban board for task management                    │
 │  ├── Chat interface                                      │
-│  ├── Agents management                                  │
-│  ├── Usage statistics                                   │
-│  └── Settings panel                                    │
+│  ├── Agents management                                   │
+│  ├── Media library                                       │
+│  ├── Usage statistics                                    │
+│  └── Settings panel                                     │
 ├─────────────────────────────────────────────────────────────┤
 │  packages/playwright — Sandboxed Chromium worker          │
 │  ├── Web scraping (scrape, automate, screenshot)          │
-│  ├── Isolated from host system                          │
+│  ├── Isolated from host system                           │
 │  └── Communicates via stdin/stdout JSON-RPC              │
 ├─────────────────────────────────────────────────────────────┤
 │  packages/orchestration — Python CrewAI Flows            │
-│  ├── SwarmCoordinatorFlow for task delegation            │
+│  ├── SwarmCoordinatorFlow for task delegation           │
 │  ├── State persistence with SQLite                      │
 │  └── Agent definitions (Brainstormer, Coder, etc.)     │
 └─────────────────────────────────────────────────────────────┘
@@ -80,9 +107,21 @@ pnpm install
 pnpm build
 ```
 
+### First Run - Setup Wizard
+
+On first run, the dashboard redirects to the Setup Wizard at `/setup`:
+
+1. **Welcome** - Introduction to SecureClaudebot
+2. **Security PIN** - Create a PIN to encrypt your API keys (minimum 4 characters)
+3. **Telegram** - Optionally configure your Telegram bot token
+4. **LLM Provider** - Select your preferred AI provider and model
+5. **Review** - Confirm and save your configuration
+
+The setup wizard ensures all required settings are configured before using the bot.
+
 ### Configuration
 
-Edit `config.json` in the project root:
+Alternatively, edit `config.json` in `packages/gateway/`:
 
 ```json
 {
@@ -93,7 +132,11 @@ Edit `config.json` in the project root:
   },
   "telegram": {
     "botToken": "your_bot_token",
-    "approvedUsers": [your_telegram_id]
+    "approvedUsers": [your_telegram_id],
+    "voiceReplies": true,
+    "voiceProvider": "gtts",
+    "voiceId": "en",
+    "voiceSpeed": 1.0
   },
   "llm": {
     "primary": {
@@ -104,9 +147,8 @@ Edit `config.json` in the project root:
     "fallbacks": []
   },
   "voice": {
-    "provider": "elevenlabs",
-    "elevenLabsApiKey": "your_elevenlabs_key",
-    "voiceId": "rachel"
+    "provider": "gtts",
+    "elevenLabsApiKey": "your_elevenlabs_key"
   },
   "security": {
     "pin": "your_pin",
@@ -114,7 +156,7 @@ Edit `config.json` in the project root:
     "jwtSecret": "auto-generated"
   },
   "agents": {
-    "directory": "data/agents",
+    "directory": "./data/agents",
     "enableRcaCron": true,
     "rcaCronSchedule": "0 2 * * *"
   },
@@ -123,7 +165,7 @@ Edit `config.json` in the project root:
     "browser": "chromium"
   },
   "tailscale": {
-    "enabled": true
+    "enabled": false
   }
 }
 ```
@@ -170,6 +212,11 @@ The core gateway service.
 - `chat:stream:start`, `chat:stream:chunk`, `chat:stream:end` - Streaming responses
 - `voice:transcribe` - Transcribe audio (base64 encoded)
 - `voice:speak` - Generate TTS audio
+- `voice:settings:update` - Update voice settings
+- `voice:test` - Test voice with sample text
+- `setup:check` - Check if initial setup is needed
+- `setup:complete` - Save initial configuration
+- `media:list`, `media:get`, `media:delete` - Media management
 - `orchestration:*` - Orchestration control
 - `qmd:search` - Vector search queries
 - `tailscale:status` - Tailscale status
@@ -183,14 +230,15 @@ Next.js PWA for user interface.
 - Dashboard: `3100`
 
 **Pages:**
-- `/` - Dashboard home
+- `/` - Dashboard home (redirects to /setup if not configured)
+- `/setup` - First-run setup wizard
 - `/chat` - Chat interface
 - `/kanban` - Task board (with orchestration)
 - `/agents` - Agent management
 - `/status` - System status
 - `/usage` - Usage statistics
 - `/settings` - Configuration
-- `/media` - Media files
+- `/media` - Media files library
 - `/workflows` - Workflow automation
 
 ### @scb/playwright
@@ -262,16 +310,36 @@ The bot's identity is loaded as a system prompt, so the chatbot will:
 - Supports multiple audio formats (ogg, webm, mp3)
 
 **Voice Output (TTS):**
-- Configure in `config.json`:
-  ```json
-  "voice": {
-    "provider": "elevenlabs",  // or "openai"
-    "elevenLabsApiKey": "your_key",
-    "voiceId": "rachel"
-  }
-  ```
-- Use `voice:speak` socket event to generate speech
-- Supported voices: Rachel, Alloy, Nova, and more
+Configure in Settings (Dashboard) or config.json:
+
+- **gTTS** (free, default) - Google Translate TTS
+- **ElevenLabs** - Premium neural TTS
+- **OpenAI** - TTS-1 voices
+- **Coqui** - Open source local TTS
+- **Piper** - Fast neural TTS (local)
+
+Voice settings in dashboard:
+- Toggle voice replies on/off
+- Select voice provider
+- Choose language/voice
+- Adjust voice speed (0.5x - 2.0x)
+- Test button to preview voice
+
+## Media Library
+
+Upload and manage files in `/media`:
+- **Images:** jpeg, png, gif, webp, svg, bmp, tiff
+- **Videos:** mp4, webm, ogg, quicktime, avi
+- **Audio:** mp3, wav, ogg, webm
+- **Documents:** pdf, doc, docx, xls, xlsx, ppt, pptx
+- **Text:** txt, md, csv, json, html, css, js
+- **Archives:** zip, tar, gzip, rar, 7z
+
+Features:
+- Grid and list view modes
+- Search files
+- Preview images and documents
+- Delete files
 
 ## QMD Search
 
@@ -292,6 +360,7 @@ Use the `qmd:search` socket event to search.
 4. **Rate Limiting** - Prevents abuse
 5. **Audit Logging** - Append-only log of all activities
 6. **Encrypted Secrets** - AES-256-GCM encryption with PBKDF2 key derivation
+7. **PIN Protection** - All secrets encrypted with user PIN
 
 ### Audit Events
 
@@ -314,6 +383,8 @@ Use the `qmd:search` socket event to search.
 /start - Start the bot
 /help - Show help message
 /status - Check system status
+/voice - Enable voice replies
+/text - Disable voice replies
 /models - List available LLM models
 ```
 
@@ -361,7 +432,8 @@ npx pm2 restart all
 ### Voice Not Working
 
 1. Ensure faster-whisper is installed: `pip install faster-whisper`
-2. For TTS, configure ElevenLabs or OpenAI API key in config.json
+2. For TTS, configure provider in Settings or config.json
+3. Use the Test Voice button in Settings to verify
 
 ### Tailscale
 
