@@ -49,7 +49,7 @@ export interface GatewayContext {
 }
 
 async function main() {
-  log.info("SecureClaudebot gateway starting...");
+  log.info("FastBot gateway starting...");
 
   // Ensure data directory exists
   if (!existsSync(DATA_DIR)) {
@@ -63,7 +63,7 @@ async function main() {
   const needsOnboarding = !config.llm?.primary?.apiKey || config.llm.primary.apiKey.startsWith("YOUR_");
   if (needsOnboarding) {
     log.warn("API key not configured - running in limited mode");
-    console.log("\n⚠️  SecureClaudebot needs configuration!\n");
+    console.log("\n⚠️  FastBot needs configuration!\n");
     console.log("Please configure your settings in config.json or run the setup wizard.\n");
     console.log("Required: LLM provider API key (set in config.json)\n");
   }

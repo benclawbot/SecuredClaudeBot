@@ -348,7 +348,7 @@ export default function ChatPage() {
                 <span className="text-black text-2xl font-bold">SC</span>
               </div>
               <h3 className="text-xl font-light text-white/80 mb-3">
-                SecureClaudebot
+                FastBot
               </h3>
               <p className="text-sm text-white/40 max-w-md mx-auto leading-relaxed">
                 Your ultra-secure AI assistant. Configure your LLM provider in Settings to get started.

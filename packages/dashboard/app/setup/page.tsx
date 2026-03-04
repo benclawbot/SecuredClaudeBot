@@ -138,7 +138,7 @@ export default function SetupPage() {
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-400 to-emerald-600 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-emerald-500/20">
             <span className="text-black text-2xl font-bold">SC</span>
           </div>
-          <h1 className="text-2xl font-light text-white">SecureClaudebot Setup</h1>
+          <h1 className="text-2xl font-light text-white">FastBot Setup</h1>
           <p className="text-sm text-white/40 mt-1">Configure your secure AI gateway</p>
         </div>
 
@@ -189,7 +189,7 @@ export default function SetupPage() {
           {/* Welcome Step */}
           {step === "welcome" && (
             <div className="text-center">
-              <h2 className="text-xl font-light text-white mb-4">Welcome to SecureClaudebot</h2>
+              <h2 className="text-xl font-light text-white mb-4">Welcome to FastBot</h2>
               <p className="text-sm text-white/50 mb-6">
                 Let's set up your secure AI gateway in just a few steps.
                 You'll configure your encryption PIN, connect Telegram, and set up your LLM provider.
@@ -387,7 +387,7 @@ export default function SetupPage() {
               </div>
 
               <p className="text-xs text-white/40">
-                Click "Complete Setup" to save your configuration and start using SecureClaudebot.
+                Click "Complete Setup" to save your configuration and start using FastBot.
               </p>
             </div>
           )}
@@ -400,7 +400,7 @@ export default function SetupPage() {
               </div>
               <h2 className="text-xl font-light text-white mb-2">Setup Complete!</h2>
               <p className="text-sm text-white/50 mb-6">
-                Your SecureClaudebot is now configured and ready to use.
+                Your FastBot is now configured and ready to use.
               </p>
               <button
                 onClick={() => router.push("/chat")}

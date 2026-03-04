@@ -1,6 +1,6 @@
-# SecureClaudebot
+# FastBot
 
-Ultra-secure personal AI gateway inspired by OpenClaw. Runs on Android (Termux) or any Node.js server.
+Ultra-secure personal AI gateway. Runs on Android (Termux) or any Node.js server.
 
 ## Architecture
 - **Monorepo**: pnpm workspaces with 3 packages
@@ -11,8 +11,8 @@ Ultra-secure personal AI gateway inspired by OpenClaw. Runs on Android (Termux) 
 ## Key Commands
 - `pnpm dev` — Start all packages in development mode
 - `pnpm build` — Build all packages
-- `pnpm --filter @scb/gateway run dev` — Start gateway only
-- `pnpm --filter @scb/dashboard run dev` — Start dashboard only
+- `pnpm --filter @fastbot/gateway run dev` — Start gateway only
+- `pnpm --filter @fastbot/dashboard run dev` — Start dashboard only
 
 ## Conventions
 - TypeScript strict mode everywhere

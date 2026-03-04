@@ -33,7 +33,7 @@ export async function parseLink(url: string): Promise<ParsedLink> {
   const response = await fetch(url, {
     headers: {
       "User-Agent":
-        "Mozilla/5.0 (compatible; SecureClaudebot/1.0; +https://github.com/benclawbot/SecuredClaudeBot)",
+        "Mozilla/5.0 (compatible; FastBot/1.0; +https://github.com/benclawbot/SecuredClaudeBot)",
       Accept: "text/html,application/xhtml+xml",
     },
     signal: AbortSignal.timeout(15_000),

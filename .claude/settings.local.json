@@ -1,7 +1,7 @@
 {
   "permissions": {
     "allow": [
-      "Bash(test -d /c/SecureClaudebot/.claude)",
+      "Bash(test -d /c/FastBot/.claude)",
       "Bash(test -d /c/Users/ThomasCHAFFANJON/.claude/skills)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:openclaw.ai)",
@@ -14,7 +14,7 @@
       "Bash(pnpm approve-builds better-sqlite3 esbuild sharp)",
       "Bash(npx tsc --noEmit)",
       "Bash(timeout 8 npx tsx packages/gateway/src/index.ts)",
-      "Bash(pnpm --filter @scb/gateway run test)",
+      "Bash(pnpm --filter @fastbot/gateway run test)",
       "Bash(git status -u)",
       "Bash(git add .gitignore CLAUDE.md package.json pnpm-workspace.yaml pnpm-lock.yaml tsconfig.base.json .claude/settings.local.json packages/gateway/package.json packages/gateway/tsconfig.json packages/gateway/vitest.config.ts packages/gateway/src/ packages/dashboard/package.json packages/dashboard/tsconfig.json packages/dashboard/next.config.ts packages/dashboard/postcss.config.mjs packages/dashboard/src/ packages/playwright/package.json packages/playwright/tsconfig.json packages/playwright/src/)"
     ]

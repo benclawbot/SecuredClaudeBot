@@ -1,7 +1,7 @@
 #!/bin/bash
 # Gateway process manager
 
-GATEWAY_DIR="/home/tom/SecuredClaudeBot/packages/gateway"
+GATEWAY_DIR="/home/tom/FastBot/packages/gateway"
 
 restart_gateway() {
     echo "Stopping gateway..."

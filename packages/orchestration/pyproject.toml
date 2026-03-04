@@ -1,10 +1,10 @@
 [project]
-name = "scb-orchestration"
+name = "fastbot-orchestration"
 version = "0.1.0"
-description = "SecureClaudeBot Agent Orchestration using CrewAI Flows"
+description = "FastBot Agent Orchestration using CrewAI Flows"
 requires-python = ">=3.11"
 dependencies = [
-    "crewai>=0.80.0",
+    "crewai>=1.9.0",
     "pydantic>=2.0.0",
     "sqlalchemy>=2.0.0",
 ]

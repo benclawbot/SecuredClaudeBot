@@ -47,7 +47,7 @@ export default function Home() {
       {/* Header */}
       <header className="mb-12">
         <h1 className="text-3xl font-light tracking-tight mb-2">Dashboard</h1>
-        <p className="text-white/40">SecureClaudebot overview</p>
+        <p className="text-white/40">FastBot overview</p>
       </header>
 
       {/* Stats Grid */}

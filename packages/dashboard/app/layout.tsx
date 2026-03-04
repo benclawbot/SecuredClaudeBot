@@ -4,7 +4,7 @@ import { SocketProvider } from "@/lib/socket";
 import { Sidebar } from "@/components/sidebar";
 
 export const metadata: Metadata = {
-  title: "SecureClaudebot",
+  title: "FastBot",
   description: "Ultra-secure personal AI gateway",
   manifest: "/manifest.json",
   icons: {

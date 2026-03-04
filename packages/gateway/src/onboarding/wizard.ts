@@ -63,7 +63,7 @@ export class OnboardingWizard {
       case "welcome":
         return {
           message:
-            "Welcome to SecureClaudebot! Let's set up your secure AI gateway.\n\n" +
+            "Welcome to FastBot! Let's set up your secure AI gateway.\n\n" +
             "First, we'll configure your encryption PIN, Telegram bot, and LLM provider.\n\n" +
             "Type 'start' to begin.",
           promptType: "text",

@@ -1,6 +1,6 @@
 /**
  * Doctor / Diagnostics — health checks for all subsystems.
- * Can run as CLI: `pnpm --filter @scb/gateway run doctor`
+ * Can run as CLI: `pnpm --filter @fastbot/gateway run doctor`
  */
 import { existsSync } from "node:fs";
 import { resolve } from "node:path";
@@ -97,7 +97,7 @@ async function checkPort(port: number): Promise<boolean> {
 
 // CLI runner
 async function main() {
-  console.log("\n🔍 SecureClaudebot Doctor\n");
+  console.log("\n🔍 FastBot Doctor\n");
   console.log("Running diagnostics...\n");
 
   const results = await runChecks();

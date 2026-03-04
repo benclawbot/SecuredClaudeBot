@@ -1,5 +1,5 @@
 {
-  "name": "@scb/orchestration",
+  "name": "@fastbot/orchestration",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -8,6 +8,6 @@
     "test": "pytest"
   },
   "dependencies": {
-    "crewai": "^0.80.0"
+    "crewai": "^1.0.1"
   }
 }

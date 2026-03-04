@@ -1,4 +1,4 @@
-# SecuredClaudeBot
+# FastBot
 
 Ultra-secure personal AI gateway inspired by OpenClaw. Runs on Android (Termux) or any Node.js server.
 
@@ -53,7 +53,7 @@ Ultra-secure personal AI gateway inspired by OpenClaw. Runs on Android (Termux) 
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     SecuredClaudeBot                        │
+│                        FastBot                               │
 ├─────────────────────────────────────────────────────────────┤
 │  packages/gateway    — Node.js 22 + TypeScript            │
 │  ├── Socket.io hub for real-time communication           │
@@ -97,8 +97,8 @@ Ultra-secure personal AI gateway inspired by OpenClaw. Runs on Android (Termux) 
 
 ```bash
 # Clone the repository
-git clone https://github.com/benclawbot/SecuredClaudeBot.git
-cd SecuredClaudeBot
+git clone https://github.com/benclawbot/FastBot.git
+cd FastBot
 
 # Install dependencies
 pnpm install
@@ -111,7 +111,7 @@ pnpm build
 
 On first run, the dashboard redirects to the Setup Wizard at `/setup`:
 
-1. **Welcome** - Introduction to SecureClaudebot
+1. **Welcome** - Introduction to FastBot
 2. **Security PIN** - Create a PIN to encrypt your API keys (minimum 4 characters)
 3. **Telegram** - Optionally configure your Telegram bot token
 4. **LLM Provider** - Select your preferred AI provider and model
@@ -199,7 +199,7 @@ python -m src.scb_orchestration.server
 
 ## Packages
 
-### @scb/gateway
+### @fastbot/gateway
 
 The core gateway service.
 
@@ -222,7 +222,7 @@ The core gateway service.
 - `tailscale:status` - Tailscale status
 - `file:upload` - Upload files/images
 
-### @scb/dashboard
+### @fastbot/dashboard
 
 Next.js PWA for user interface.
 
@@ -241,7 +241,7 @@ Next.js PWA for user interface.
 - `/media` - Media files library
 - `/workflows` - Workflow automation
 
-### @scb/playwright
+### @fastbot/playwright
 
 Sandboxed browser automation worker.
 
@@ -250,7 +250,7 @@ Sandboxed browser automation worker.
 - `screenshot` - Take a screenshot
 - `automate` - Run a sequence of actions
 
-### @scb/orchestration
+### @fastbot/orchestration
 
 Python CrewAI Flows for multi-agent orchestration.
 
@@ -395,7 +395,7 @@ Use the `qmd:search` socket event to search.
 pnpm build
 
 # Run tests
-pnpm --filter @scb/gateway test
+pnpm --filter @fastbot/gateway test
 
 # Lint
 pnpm lint

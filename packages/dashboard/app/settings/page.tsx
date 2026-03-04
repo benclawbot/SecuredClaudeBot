@@ -205,7 +205,7 @@ export default function SettingsPage() {
     <div className="p-8 lg:p-12 max-w-3xl mx-auto">
       <header className="mb-12">
         <h1 className="text-3xl font-light tracking-tight mb-2">Settings</h1>
-        <p className="text-white/40">Configure your SecureClaudebot</p>
+        <p className="text-white/40">Configure your FastBot</p>
       </header>
 
       <div className="space-y-6">

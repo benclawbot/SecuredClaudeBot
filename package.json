@@ -1,5 +1,5 @@
 {
-  "name": "secureclaudebot",
+  "name": "fastbot",
   "version": "0.1.0",
   "private": true,
   "description": "Ultra-secure personal AI gateway — Telegram + Mission Control dashboard",
@@ -7,10 +7,10 @@
     "dev": "pnpm -r --parallel run dev",
     "build": "pnpm -r run build",
     "lint": "pnpm -r run lint",
-    "doctor": "pnpm --filter @scb/gateway run doctor",
-    "dashboard": "pnpm --filter @scb/dashboard run dev",
-    "gateway": "pnpm --filter @scb/gateway run dev",
-    "playwright": "pnpm --filter @scb/playwright run dev",
+    "doctor": "pnpm --filter @fastbot/gateway run doctor",
+    "dashboard": "pnpm --filter @fastbot/dashboard run dev",
+    "gateway": "pnpm --filter @fastbot/gateway run dev",
+    "playwright": "pnpm --filter @fastbot/playwright run dev",
     "start": "pnpm -r --parallel run start",
     "setup": "pnpm install && pnpm build"
   },

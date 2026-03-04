@@ -52,7 +52,7 @@ export class TelegramBot {
 
       if (this.approval.isApproved(userId)) {
         await botCtx.reply(
-          "Welcome back to SecureClaudebot. Send any message to chat with the AI agent."
+          "Welcome back to FastBot. Send any message to chat with the AI agent."
         );
         return;
       }
@@ -64,7 +64,7 @@ export class TelegramBot {
 
       const code = this.approval.generateCode(userId);
       await botCtx.reply(
-        `SecureClaudebot requires approval.\n\nYour code: \`${code}\`\n\nReply with this code to verify.`,
+        `FastBot requires approval.\n\nYour code: \`${code}\`\n\nReply with this code to verify.`,
         { parse_mode: "Markdown" }
       );
 
@@ -86,7 +86,7 @@ export class TelegramBot {
       const status = this.getStatus();
       const voiceEnabled = this.ctx.config.telegram.voiceReplies;
       await botCtx.reply(
-        `*SecureClaudebot Status*\n\n` +
+        `*FastBot Status*\n\n` +
           `Gateway: ${status.gateway}\n` +
           `Uptime: ${status.uptimeMin}m\n` +
           `Memory: ${status.memoryMB}MB\n` +
@@ -129,7 +129,7 @@ export class TelegramBot {
       }
 
       await botCtx.reply(
-        `*SecureClaudebot Commands*\n\n` +
+        `*FastBot Commands*\n\n` +
           `/start - Start the bot\n` +
           `/help - Show this message\n` +
           `/status - Check system status\n` +
@@ -172,7 +172,7 @@ export class TelegramBot {
         const text = botCtx.message.text.trim();
         if (this.approval.verify(userId, text)) {
           await botCtx.reply(
-            "Approved! You can now chat with SecureClaudebot."
+            "Approved! You can now chat with FastBot."
           );
           this.ctx.audit.log({
             event: "auth.telegram_approved",
