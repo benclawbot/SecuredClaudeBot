@@ -7,11 +7,11 @@ export const telegramConfigSchema = z.object({
   /** Rate limit: max requests per minute per user */
   rateLimit: z.number().default(20),
   /** Enable voice (TTS) replies in Telegram */
-  voiceReplies: z.boolean().default(false),
-  /** Voice provider for TTS: elevenlabs or openai */
-  voiceProvider: z.enum(["elevenlabs", "openai"]).default("elevenlabs"),
-  /** ElevenLabs voice ID (default: rachel) */
-  voiceId: z.string().default("rachel"),
+  voiceReplies: z.boolean().default(true),
+  /** Voice provider for TTS: gtts (free), elevenlabs, openai, coqui, piper */
+  voiceProvider: z.enum(["gtts", "elevenlabs", "openai", "coqui", "piper"]).default("gtts"),
+  /** Voice ID (language for gtts, model for coqui/piper, voice ID for elevenlabs/openai) */
+  voiceId: z.string().default("en"),
 });
 
 export const llmProviderSchema = z.object({

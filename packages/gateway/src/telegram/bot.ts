@@ -265,18 +265,22 @@ export class TelegramBot {
     const voiceConfig = this.ctx.config.telegram;
     if (!voiceConfig?.voiceReplies) return;
 
-    const apiKey = voiceConfig.voiceProvider === "elevenlabs"
-      ? this.ctx.config.voice?.elevenLabsApiKey
-      : this.ctx.config.llm.primary.apiKey;
+    // Free TTS providers (coqui, piper) don't need API keys
+    const isFreeProvider = voiceConfig.voiceProvider === "coqui" || voiceConfig.voiceProvider === "piper";
 
-    if (!apiKey) {
-      log.warn("Voice reply enabled but no API key configured");
+    const apiKey = isFreeProvider ? "" :
+      (voiceConfig.voiceProvider === "elevenlabs"
+        ? this.ctx.config.voice?.elevenLabsApiKey
+        : this.ctx.config.llm.primary.apiKey);
+
+    if (!apiKey && !isFreeProvider) {
+      log.warn("Voice reply enabled but no API key configured for paid provider");
       return;
     }
 
     try {
       const { textToSpeech } = await import("../voice/tts.js");
-      const result = await textToSpeech(text, apiKey, {
+      const result = await textToSpeech(text, apiKey || "", {
         provider: voiceConfig.voiceProvider,
         voice: voiceConfig.voiceId,
       });
