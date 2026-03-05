@@ -1590,7 +1590,7 @@ async function main() {
     });
 
     // ── File Upload ──
-    socket.on("file:upload", async (data: { filename: string; content: string; type: string }) => {
+    socket.on("file:upload", async (data: { filename: string; content: string; type: string; actorId?: string }) => {
       try {
         // content is base64 encoded
         const buffer = Buffer.from(data.content, "base64");
@@ -1616,6 +1616,68 @@ async function main() {
           extractedText: extractedText,
           extractedTextPreview: extractedText ? extractedText.slice(0, 500) + (extractedText.length > 500 ? "..." : "") : null,
         });
+
+        // If we have extracted text and actorId is provided, automatically process with LLM
+        if (extractedText && data.actorId) {
+          const actorId = data.actorId;
+          const session = sessions.getOrCreate(actorId, "web");
+
+          // Determine file type description
+          const fileType = mediaFile.mimeType.startsWith("image/") ? "image" :
+            mediaFile.mimeType === "application/pdf" ? "PDF document" :
+              mediaFile.mimeType.includes("word") ? "Word document" :
+                mediaFile.mimeType.includes("spreadsheet") ? "spreadsheet" :
+                  mediaFile.mimeType.includes("presentation") ? "PowerPoint presentation" :
+                    "document";
+
+          // Build user message with extracted text
+          const userMessage = `[Uploaded ${fileType}: ${filename}]\n\n${extractedText}`;
+          sessions.addMessage(session.id, "user", userMessage);
+
+          // Emit to Socket.io
+          io.to(session.id).emit("chat:message", {
+            sessionId: session.id,
+            role: "user",
+            content: userMessage,
+            ts: Date.now(),
+            source: "web",
+            attachment: {
+              type: fileType,
+              fileId: mediaFile.id,
+              filename: filename,
+              extractedText: extractedText,
+            },
+          });
+
+          // Start streaming response
+          io.to(session.id).emit("chat:stream:start", { sessionId: session.id });
+
+          const messages = session.messages.map((m) => ({
+            role: m.role as "user" | "assistant",
+            content: m.content,
+          }));
+
+          const abortController = new AbortController();
+          sessions.setAbortController(session.id, abortController);
+
+          let fullResponse = "";
+          try {
+            for await (const chunk of llmRouter.stream(messages, session.id, botSystemPrompt, abortController.signal)) {
+              fullResponse += chunk;
+              io.to(session.id).emit("chat:stream:chunk", {
+                sessionId: session.id,
+                chunk,
+              });
+            }
+          } finally {
+            sessions.setAbortController(session.id, null);
+          }
+
+          sessions.addMessage(session.id, "assistant", fullResponse);
+          io.to(session.id).emit("chat:stream:end", { sessionId: session.id });
+
+          log.info({ sessionId: session.id, fileId: mediaFile.id }, "File uploaded and processed with LLM");
+        }
       } catch (err) {
         log.error({ err }, "File upload failed");
         socket.emit("file:uploaded", { error: String(err) });
