@@ -117,6 +117,9 @@ Ultra-secure personal AI gateway. Runs on Android (Termux) or any Node.js server
 
 #### Linux (Ubuntu/Debian)
 ```bash
+# Update package lists
+sudo apt-get update
+
 # Install Node.js 22
 curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
 sudo apt-get install -y nodejs
@@ -134,6 +137,9 @@ cd FastBot && pnpm install && pnpm build && pnpm launch
 
 #### macOS
 ```bash
+# Update Homebrew
+brew update
+
 # Install Homebrew (if not installed)
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
