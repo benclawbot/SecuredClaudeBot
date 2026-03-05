@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, type FormEvent } from "react";
 import { useSocket } from "@/lib/socket";
 import { Bot, Lock, Shield, Trash2, Check, AlertCircle, Link2, Github, Unlink, Zap, Globe, Volume2, Play } from "lucide-react";
+import { CredentialsModal, useCredentialsCheck } from "@/components/credentials-modal";
 
 interface LlmSettings {
   provider: string;
@@ -26,6 +27,7 @@ const PROVIDER_MODELS: Record<string, string[]> = {
 
 export default function SettingsPage() {
   const { socket, connected } = useSocket();
+  const { showCredentialsModal, completeCredentials } = useCredentialsCheck();
 
   // LLM Settings
   const [llm, setLlm] = useState<LlmSettings>({
@@ -273,7 +275,9 @@ export default function SettingsPage() {
   };
 
   return (
-    <div className="p-8 lg:p-12 max-w-3xl mx-auto">
+    <>
+      <CredentialsModal isOpen={showCredentialsModal} onComplete={completeCredentials} />
+      <div className="p-8 lg:p-12 max-w-3xl mx-auto">
       <header className="mb-12">
         <h1 className="text-3xl font-light tracking-tight mb-2">Settings</h1>
         <p className="text-white/40">Configure your FastBot</p>
@@ -916,5 +920,6 @@ export default function SettingsPage() {
         </section>
       </div>
     </div>
+    </>
   );
 }

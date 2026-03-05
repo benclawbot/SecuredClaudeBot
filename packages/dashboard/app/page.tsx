@@ -3,29 +3,33 @@
 import { useStatus } from "@/lib/hooks";
 import { useSocket } from "@/lib/socket";
 import Link from "next/link";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { MessageCircle, Activity, Settings, Cpu, Clock, HardDrive } from "lucide-react";
+import { CredentialsModal, useCredentialsCheck } from "@/components/credentials-modal";
 
 export default function Home() {
   const { status, connected } = useStatus();
   const { socket } = useSocket();
   const router = useRouter();
+  const { showCredentialsModal, completeCredentials } = useCredentialsCheck();
+  const [checkedSetup, setCheckedSetup] = useState(false);
 
-  // Check if setup is needed
+  // Check if setup is needed - redirect to settings instead of setup
   useEffect(() => {
-    if (socket && connected) {
+    if (socket && connected && !checkedSetup) {
+      setCheckedSetup(true);
       socket.emit("setup:check");
       socket.on("setup:status", (data: { needsSetup: boolean; isConfigured: boolean }) => {
         if (data.needsSetup && !data.isConfigured) {
-          router.replace("/setup");
+          router.replace("/settings");
         }
       });
       return () => {
         socket.off("setup:status");
       };
     }
-  }, [socket, connected, router]);
+  }, [socket, connected, router, checkedSetup]);
 
   const formatUptime = (seconds: number) => {
     const h = Math.floor(seconds / 3600);
@@ -43,7 +47,9 @@ export default function Home() {
   const subsystems = status?.subsystems ? Object.entries(status.subsystems) : [];
 
   return (
-    <div className="p-8 lg:p-12 max-w-6xl mx-auto">
+    <>
+      <CredentialsModal isOpen={showCredentialsModal} onComplete={completeCredentials} />
+      <div className="p-8 lg:p-12 max-w-6xl mx-auto">
       {/* Header */}
       <header className="mb-12">
         <h1 className="text-3xl font-light tracking-tight mb-2">Dashboard</h1>
@@ -109,6 +115,7 @@ export default function Home() {
         </div>
       </section>
     </div>
+    </>
   );
 }
 

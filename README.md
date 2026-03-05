@@ -18,6 +18,7 @@ Ultra-secure personal AI gateway inspired by OpenClaw. Runs on Android (Termux) 
 - **Sandboxed Browser** - Playwright-based web automation (included)
 - **Tailscale Integration** - Secure remote access
 - **OAuth Integration** - Google, Microsoft, GitHub authentication
+- **GitHub Integration** - Create commits, browse repos, manage issues and PRs
 - **Audit Logging** - Full activity tracking
 - **Security Hardened** - SSRF blocking, path traversal prevention, rate limiting
 - **Voice Input** - Whisper transcription for voice notes (Telegram & Dashboard)
@@ -28,6 +29,7 @@ Ultra-secure personal AI gateway inspired by OpenClaw. Runs on Android (Termux) 
 - **Bot Identity** - Customizable personality via identity, role, and memories
 - **Fixed Port** - Default port 44512 for reliable connections
 - **PM2 Process Manager** - Production-ready process management
+- **Cron Jobs** - Automated self-improvement and codebase indexing
 
 ## Screenshots
 
@@ -60,6 +62,9 @@ Ultra-secure personal AI gateway inspired by OpenClaw. Runs on Android (Termux) 
 
 ### Status
 ![Status](docs/images/dashboard-status.png)
+
+### Cron Jobs
+*Coming soon - automated self-improvement and codebase indexing*
 
 ## Architecture
 
@@ -471,6 +476,30 @@ Voice settings in dashboard:
 - Adjust voice speed (0.5x - 2.0x)
 - Test button to preview voice
 
+## Cron Jobs
+
+FastBot includes automated cron jobs for self-improvement and codebase maintenance:
+
+### Self-Improvement
+
+The system periodically analyzes agent memories and chat history to:
+- Identify patterns in agent behavior
+- Generate improvement suggestions
+- Create code references for better performance
+
+### Codebase Indexing
+
+Automatic or on-demand indexing of TypeScript source code:
+- Indexes functions, classes, interfaces, and types
+- Enables QMD semantic search across your codebase
+- Shows index statistics (files, chunks, last indexed)
+
+Access the Cron Jobs page at `/cron` in the dashboard to:
+- View current status
+- Trigger manual indexing
+- Review self-improvement reports
+- Configure scheduling
+
 ## Media Library
 
 Upload and manage files in `/media`:
@@ -493,8 +522,22 @@ Query Memory Data provides semantic search across:
 - Agent files (identity, role, memories, lessons)
 - Chat history
 - Stored memories
+- **Codebase** - Index and search your TypeScript source code
 
-Use the `qmd:search` socket event to search.
+### Codebase Indexing
+
+The QMD system can now index your FastBot codebase for semantic search:
+
+1. Go to `/cron` in the dashboard
+2. Click "Index Codebase" to scan TypeScript files
+3. Once indexed, the chatbot can search across your code
+
+The indexer extracts:
+- Functions, classes, interfaces, and types
+- File paths and line numbers
+- Context around each code element
+
+This enables the AI to reference your codebase directly during conversations.
 
 ## Security
 
