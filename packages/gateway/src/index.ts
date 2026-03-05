@@ -258,16 +258,26 @@ async function main() {
       return next();
     }
 
-    const payload = verifyToken(token, jwtSecret);
-    if (!payload) {
-      log.warn({ socketId: socket.id }, "Socket connection rejected: invalid token");
-      return next(new Error("Authentication required: invalid token"));
+    // Try to verify token - if invalid, still allow connection (will try auto-login)
+    try {
+      const payload = verifyToken(token, jwtSecret);
+      if (payload) {
+        // Mark as authenticated and store user info
+        (socket as any).authenticated = true;
+        (socket as any).user = payload;
+        log.info({ socketId: socket.id, actor: payload.sub }, "Socket authenticated");
+      } else {
+        // Token invalid - allow connection, will retry auth
+        (socket as any).authenticated = false;
+        (socket as any).user = null;
+        log.warn({ socketId: socket.id }, "Socket connected with invalid token, will retry auth");
+      }
+    } catch {
+      // Token verification failed - allow connection, will retry auth
+      (socket as any).authenticated = false;
+      (socket as any).user = null;
+      log.warn({ socketId: socket.id }, "Socket connected with invalid token, will retry auth");
     }
-
-    // Mark as authenticated and store user info
-    (socket as any).authenticated = true;
-    (socket as any).user = payload;
-    log.info({ socketId: socket.id, actor: payload.sub }, "Socket authenticated");
     next();
   });
 
