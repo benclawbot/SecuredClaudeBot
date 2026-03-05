@@ -132,7 +132,14 @@ sudo apt-get install python3.11 python3-pip python3-venv || sudo apt-get install
 
 # Clone and setup
 git clone https://github.com/benclawbot/FastBot.git
-cd FastBot && pnpm install && pnpm build && pnpm launch
+cd FastBot
+
+# Copy and configure environment variables
+cp .env.example .env
+# Edit .env with your API keys (Telegram, LLM, etc.)
+
+# Install, build, and launch
+pnpm install && pnpm build && pnpm launch
 ```
 
 #### macOS
@@ -151,7 +158,14 @@ npm install -g pnpm
 
 # Clone and setup
 git clone https://github.com/benclawbot/FastBot.git
-cd FastBot && pnpm install && pnpm build && pnpm launch
+cd FastBot
+
+# Copy and configure environment variables
+cp .env.example .env
+# Edit .env with your API keys (Telegram, LLM, etc.)
+
+# Install, build, and launch
+pnpm install && pnpm build && pnpm launch
 ```
 
 #### Android (Termux)
@@ -167,7 +181,14 @@ npm install -g pnpm
 
 # Clone and setup
 git clone https://github.com/benclawbot/FastBot.git
-cd FastBot && pnpm install --ignore-scripts && pnpm build && pnpm launch
+cd FastBot
+
+# Copy and configure environment variables
+cp .env.example .env
+# Edit .env with your API keys
+
+# Install, build, and launch
+pnpm install --ignore-scripts && pnpm build && pnpm launch
 ```
 
 #### Windows WSL
