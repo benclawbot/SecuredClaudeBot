@@ -37,20 +37,25 @@ export class GoogleDriveClient {
    * @param maxResults Maximum number of files to return
    */
   async listFiles(query?: string, maxResults = 100): Promise<DriveFile[]> {
-    const { data } = await this.drive.files.list({
-      q: query,
-      pageSize: maxResults,
-      fields: "files(id, name, mimeType, size, modifiedTime, parents)",
-    });
+    try {
+      const { data } = await this.drive.files.list({
+        q: query,
+        pageSize: maxResults,
+        fields: "files(id, name, mimeType, size, modifiedTime, parents)",
+      });
 
-    return (data.files ?? []).map((f) => ({
-      id: f.id ?? "",
-      name: f.name ?? "",
-      mimeType: f.mimeType ?? "",
-      size: f.size ?? "0",
-      modifiedTime: f.modifiedTime ?? "",
-      parents: f.parents ?? undefined,
-    }));
+      return (data.files ?? []).map((f) => ({
+        id: f.id ?? "",
+        name: f.name ?? "",
+        mimeType: f.mimeType ?? "",
+        size: f.size ?? "0",
+        modifiedTime: f.modifiedTime ?? "",
+        parents: f.parents ?? undefined,
+      }));
+    } catch (error) {
+      log.error({ err: error, query, maxResults }, "Failed to list files from Drive");
+      throw error;
+    }
   }
 
   /**
@@ -59,12 +64,21 @@ export class GoogleDriveClient {
    * @returns The file content as a Buffer
    */
   async downloadFile(fileId: string): Promise<Buffer> {
-    const response = await this.drive.files.get(
-      { fileId, alt: "media" },
-      { responseType: "arraybuffer" }
-    );
+    if (!fileId || typeof fileId !== "string") {
+      throw new Error("fileId is required and must be a non-empty string");
+    }
 
-    return Buffer.from(response.data as ArrayBuffer);
+    try {
+      const response = await this.drive.files.get(
+        { fileId, alt: "media" },
+        { responseType: "arraybuffer" }
+      );
+
+      return Buffer.from(response.data as ArrayBuffer);
+    } catch (error) {
+      log.error({ err: error, fileId }, "Failed to download file from Drive");
+      throw error;
+    }
   }
 
   /**
@@ -80,34 +94,49 @@ export class GoogleDriveClient {
     content: string | Buffer,
     parentId?: string
   ): Promise<DriveFile> {
-    const fileMetadata: drive_v3.Schema$File = {
-      name,
-      parents: parentId ? [parentId] : undefined,
-    };
+    if (!name || typeof name !== "string") {
+      throw new Error("name is required and must be a non-empty string");
+    }
+    if (!mimeType || typeof mimeType !== "string") {
+      throw new Error("mimeType is required and must be a non-empty string");
+    }
+    if (!content) {
+      throw new Error("content is required");
+    }
 
-    const media = {
-      mimeType,
-      body: typeof content === "string" ? Buffer.from(content) : content,
-    };
+    try {
+      const fileMetadata: drive_v3.Schema$File = {
+        name,
+        parents: parentId ? [parentId] : undefined,
+      };
 
-    // Use multipart upload
-    const response = await this.drive.files.create({
-      requestBody: fileMetadata,
-      media,
-      fields: "id, name, mimeType, size, modifiedTime, parents",
-    });
+      const media = {
+        mimeType,
+        body: typeof content === "string" ? Buffer.from(content) : content,
+      };
 
-    const data = response.data;
-    log.info({ fileId: data.id, name }, "File uploaded to Drive");
+      // Use multipart upload
+      const response = await this.drive.files.create({
+        requestBody: fileMetadata,
+        media,
+        fields: "id, name, mimeType, size, modifiedTime, parents",
+      });
 
-    return {
-      id: data.id ?? "",
-      name: data.name ?? name,
-      mimeType: data.mimeType ?? mimeType,
-      size: data.size ?? "0",
-      modifiedTime: data.modifiedTime ?? "",
-      parents: data.parents ?? undefined,
-    };
+      const data = response.data;
+      log.info({ fileId: data.id, name }, "File uploaded to Drive");
+
+      return {
+        id: data.id ?? "",
+        name: data.name ?? name,
+        mimeType: data.mimeType ?? mimeType,
+        size: data.size ?? "0",
+        modifiedTime: data.modifiedTime ?? "",
+        parents: data.parents ?? undefined,
+      };
+    } catch (error) {
+      log.error({ err: error, name, mimeType, parentId }, "Failed to upload file to Drive");
+      throw error;
+    }
   }
 
   /**
@@ -116,25 +145,34 @@ export class GoogleDriveClient {
    * @param parentId Optional parent folder ID
    */
   async createFolder(name: string, parentId?: string): Promise<DriveFile> {
-    const { data } = await this.drive.files.create({
-      requestBody: {
-        name,
-        mimeType: "application/vnd.google-apps.folder",
-        parents: parentId ? [parentId] : undefined,
-      },
-      fields: "id, name, mimeType, size, modifiedTime, parents",
-    });
+    if (!name || typeof name !== "string") {
+      throw new Error("name is required and must be a non-empty string");
+    }
 
-    log.info({ folderId: data.id, name }, "Folder created in Drive");
+    try {
+      const { data } = await this.drive.files.create({
+        requestBody: {
+          name,
+          mimeType: "application/vnd.google-apps.folder",
+          parents: parentId ? [parentId] : undefined,
+        },
+        fields: "id, name, mimeType, size, modifiedTime, parents",
+      });
 
-    return {
-      id: data.id ?? "",
-      name: data.name ?? name,
-      mimeType: data.mimeType ?? "application/vnd.google-apps.folder",
-      size: "0",
-      modifiedTime: data.modifiedTime ?? "",
-      parents: data.parents ?? undefined,
-    };
+      log.info({ folderId: data.id, name }, "Folder created in Drive");
+
+      return {
+        id: data.id ?? "",
+        name: data.name ?? name,
+        mimeType: data.mimeType ?? "application/vnd.google-apps.folder",
+        size: "0",
+        modifiedTime: data.modifiedTime ?? "",
+        parents: data.parents ?? undefined,
+      };
+    } catch (error) {
+      log.error({ err: error, name, parentId }, "Failed to create folder in Drive");
+      throw error;
+    }
   }
 
   /**
@@ -142,8 +180,17 @@ export class GoogleDriveClient {
    * @param fileId The ID of the file to delete
    */
   async deleteFile(fileId: string): Promise<void> {
-    await this.drive.files.delete({ fileId });
-    log.info({ fileId }, "File deleted from Drive");
+    if (!fileId || typeof fileId !== "string") {
+      throw new Error("fileId is required and must be a non-empty string");
+    }
+
+    try {
+      await this.drive.files.delete({ fileId });
+      log.info({ fileId }, "File deleted from Drive");
+    } catch (error) {
+      log.error({ err: error, fileId }, "Failed to delete file from Drive");
+      throw error;
+    }
   }
 
   /**
@@ -151,18 +198,27 @@ export class GoogleDriveClient {
    * @param fileId The ID of the file
    */
   async getFileMetadata(fileId: string): Promise<DriveFile> {
-    const { data } = await this.drive.files.get({
-      fileId,
-      fields: "id, name, mimeType, size, modifiedTime, parents",
-    });
+    if (!fileId || typeof fileId !== "string") {
+      throw new Error("fileId is required and must be a non-empty string");
+    }
 
-    return {
-      id: data.id ?? "",
-      name: data.name ?? "",
-      mimeType: data.mimeType ?? "",
-      size: data.size ?? "0",
-      modifiedTime: data.modifiedTime ?? "",
-      parents: data.parents ?? undefined,
-    };
+    try {
+      const { data } = await this.drive.files.get({
+        fileId,
+        fields: "id, name, mimeType, size, modifiedTime, parents",
+      });
+
+      return {
+        id: data.id ?? "",
+        name: data.name ?? "",
+        mimeType: data.mimeType ?? "",
+        size: data.size ?? "0",
+        modifiedTime: data.modifiedTime ?? "",
+        parents: data.parents ?? undefined,
+      };
+    } catch (error) {
+      log.error({ err: error, fileId }, "Failed to get file metadata from Drive");
+      throw error;
+    }
   }
 }
