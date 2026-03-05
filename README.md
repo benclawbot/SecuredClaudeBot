@@ -2,6 +2,65 @@
 
 Ultra-secure personal AI gateway. Runs on Android (Termux) or any Node.js server.
 
+## Quick Install
+
+Choose your environment:
+
+### Linux (Ubuntu/Debian)
+```bash
+# Install Node.js 22 and pnpm
+curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
+sudo apt-get install -y nodejs
+npm install -g pnpm
+
+# Install Python (for orchestration)
+sudo apt-get install python3 python3-pip python3-venv
+
+# Clone and run
+git clone https://github.com/benclawbot/FastBot.git
+cd FastBot
+pnpm install && pnpm build && pnpm launch
+```
+
+### macOS
+```bash
+# Install Homebrew
+/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+
+# Install Node.js 22, Python, and pnpm
+brew install node@22 python@3.11
+npm install -g pnpm
+
+# Clone and run
+git clone https://github.com/benclawbot/FastBot.git
+cd FastBot
+pnpm install && pnpm build && pnpm launch
+```
+
+### Android (Termux)
+```bash
+# Install Node.js and Python
+pkg install nodejs python
+
+# Install pnpm
+npm install -g pnpm
+
+# Clone and run
+git clone https://github.com/benclawbot/FastBot.git
+cd FastBot
+pnpm install --ignore-scripts && pnpm build && pnpm launch
+```
+
+### Windows WSL
+```bash
+# Install WSL2 (run in PowerShell as admin)
+wsl --install
+
+# Then follow Linux instructions inside WSL
+```
+
+---
+
 ## Features
 
 - **Telegram Bot** - Control your AI agent via Telegram (text, voice, photos, and documents)
@@ -103,103 +162,7 @@ Ultra-secure personal AI gateway. Runs on Android (Termux) or any Node.js server
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## Quick Start
-
-### Prerequisites
-
-- Node.js 22+
-- pnpm 10+
-- Python 3.11+ (for orchestration)
-- Claude Code CLI (installed automatically during setup)
-- (Optional) Telegram bot token from @BotFather
-
-### Installation
-
-#### Linux (Ubuntu/Debian)
-```bash
-# Update package lists
-sudo apt-get update
-
-# Install Node.js 22
-curl -fsSL https://deb.nodesource.com/setup_22.x | sudo -E bash -
-sudo apt-get install -y nodejs
-
-# Install pnpm
-npm install -g pnpm
-
-# Install Python 3.11+ (or python3 for any version)
-sudo apt-get install python3.11 python3-pip python3-venv || sudo apt-get install python3 python3-pip python3-venv
-
-# Clone and setup
-git clone https://github.com/benclawbot/FastBot.git
-cd FastBot
-
-# Copy and configure environment variables
-cp .env.example .env
-# Edit .env with your API keys (Telegram, LLM, etc.)
-
-# Install, build, and launch
-pnpm install && pnpm build && pnpm launch
-```
-
-#### macOS
-```bash
-# Update Homebrew
-brew update
-
-# Install Homebrew (if not installed)
-/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-
-# Install Node.js 22 and Python
-brew install node@22 python@3.11 || brew install node@22 python@3
-
-# Install pnpm
-npm install -g pnpm
-
-# Clone and setup
-git clone https://github.com/benclawbot/FastBot.git
-cd FastBot
-
-# Copy and configure environment variables
-cp .env.example .env
-# Edit .env with your API keys (Telegram, LLM, etc.)
-
-# Install, build, and launch
-pnpm install && pnpm build && pnpm launch
-```
-
-#### Android (Termux)
-```bash
-# Update Termux
-apt update && apt upgrade -y
-
-# Install Node.js and Python
-pkg install nodejs python
-
-# Install pnpm
-npm install -g pnpm
-
-# Clone and setup
-git clone https://github.com/benclawbot/FastBot.git
-cd FastBot
-
-# Copy and configure environment variables
-cp .env.example .env
-# Edit .env with your API keys
-
-# Install, build, and launch
-pnpm install --ignore-scripts && pnpm build && pnpm launch
-```
-
-#### Windows WSL
-```bash
-# Install WSL2 (run in PowerShell as admin)
-wsl --install
-
-# Inside WSL, follow Linux instructions above
-```
-
-### Development vs Production Mode
+## Development vs Production Mode
 
 | Feature | Development | Production |
 |---------|-------------|------------|
