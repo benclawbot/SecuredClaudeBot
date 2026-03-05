@@ -166,6 +166,28 @@ function runPnpmInstall() {
   }
 }
 
+/**
+ * Ensure PM2 is installed
+ */
+function ensurePM2Installed() {
+  console.log("\nChecking PM2 installation...");
+  try {
+    execSync("pm2 --version", { stdio: "inherit" });
+    console.log("PM2 is already installed.");
+    return true;
+  } catch {
+    console.log("Installing PM2...");
+    try {
+      execSync("pnpm add -g pm2", { stdio: "inherit" });
+      console.log("PM2 installed successfully.");
+      return true;
+    } catch {
+      console.log("Warning: Could not install PM2 automatically.");
+      return false;
+    }
+  }
+}
+
 async function main() {
   console.log("\n=== FastBot Launch ===\n");
 
@@ -175,6 +197,9 @@ async function main() {
 
   // Configure pnpm to auto-build native deps
   configurePnpm();
+
+  // Ensure PM2 is installed
+  ensurePM2Installed();
 
   // Default to production mode
   const choice = "2";
@@ -199,6 +224,16 @@ async function main() {
     try {
       execSync("pm2 kill 2>/dev/null || true", { stdio: "inherit" });
     } catch {}
+
+    // Ensure build exists
+    console.log("\nEnsuring build exists...");
+    try {
+      execSync("pnpm build", { stdio: "inherit" });
+    } catch (err) {
+      console.error("Build failed:", err.message);
+      rl.close();
+      process.exit(1);
+    }
 
     // Start PM2
     try {
