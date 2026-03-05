@@ -509,8 +509,8 @@ async function main() {
 
     socket.on("setup:complete", async (data: {
       telegramToken?: string;
-      llmProvider: string;
-      llmModel: string;
+      llmProvider?: string;
+      llmModel?: string;
       llmApiKey?: string;
       baseUrl?: string;
     }) => {
@@ -519,16 +519,18 @@ async function main() {
         const jwtSecret = generateJwtSecret();
         config.security.jwtSecret = jwtSecret;
 
-        // Initialize llm.primary if not exists
-        if (!config.llm.primary) {
-          (config.llm as any).primary = { provider: "anthropic", model: "" };
+        // Handle LLM (optional - can be configured later)
+        if (data.llmProvider || data.llmModel || data.llmApiKey) {
+          if (!config.llm.primary) {
+            (config.llm as any).primary = { provider: "anthropic", model: "" };
+          }
+          if (data.llmProvider) config.llm.primary.provider = data.llmProvider as any;
+          if (data.llmModel) config.llm.primary.model = data.llmModel;
+          if (data.llmApiKey) config.llm.primary.apiKey = data.llmApiKey;
+          if (data.baseUrl) config.llm.primary.baseUrl = data.baseUrl;
         }
 
         if (data.telegramToken) config.telegram.botToken = data.telegramToken;
-        if (data.llmProvider) config.llm.primary.provider = data.llmProvider as any;
-        if (data.llmModel) config.llm.primary.model = data.llmModel;
-        if (data.llmApiKey) config.llm.primary.apiKey = data.llmApiKey;
-        if (data.baseUrl) config.llm.primary.baseUrl = data.baseUrl;
 
         // Save config
         const { saveConfig } = await import("./config/loader.js");
@@ -564,10 +566,11 @@ async function main() {
     });
 
     // ── Settings ──
-    // Request current settings
+    // Request current settings - values from .env are marked as "configured"
     socket.on("settings:request", (data: { section: string }) => {
       if (data.section === "llm") {
-        // Send LLM settings (without exposing API key)
+        // Check if values exist (from .env or config)
+        const hasApiKey = !!(config.llm.primary?.apiKey && !config.llm.primary.apiKey.startsWith("YOUR_"));
         socket.emit("settings:data", {
           section: "llm",
           data: {
@@ -575,15 +578,17 @@ async function main() {
               provider: config.llm.primary?.provider || "",
               model: config.llm.primary?.model || "",
               baseUrl: config.llm.primary?.baseUrl || "",
-              // Don't send apiKey - user needs to re-enter
+              // Show "configured" if API key exists in .env, empty if not
+              apiKey: hasApiKey ? "configured" : "",
             },
           },
         });
       } else if (data.section === "telegram") {
+        const hasToken = !!(config.telegram.botToken && !config.telegram.botToken.startsWith("YOUR_"));
         socket.emit("settings:data", {
           section: "telegram",
           data: {
-            botToken: config.telegram.botToken ? "********" : "",
+            botToken: hasToken ? "configured" : "",
             approvedUsers: config.telegram.approvedUsers?.join(", ") || "",
           },
         });

@@ -60,11 +60,8 @@ export default function SetupPage() {
         setStep("llm");
         break;
       case "llm":
-        if (!llmModel) {
-          setError("Please select a model");
-          return;
-        }
-        if (llmProvider !== "ollama" && llmProvider !== "custom" && !llmApiKey) {
+        // LLM is now optional - validate only if fields are filled
+        if (llmModel && (llmProvider !== "ollama" && llmProvider !== "custom") && !llmApiKey) {
           setError("API key is required for this provider");
           return;
         }
@@ -74,6 +71,14 @@ export default function SetupPage() {
         completeSetup();
         break;
     }
+  };
+
+  const handleSkipLlm = () => {
+    setLlmProvider("");
+    setLlmModel("");
+    setLlmApiKey("");
+    setLlmBaseUrl("");
+    setStep("verify");
   };
 
   const completeSetup = async () => {
@@ -330,16 +335,20 @@ export default function SetupPage() {
                 </div>
                 <div className="flex justify-between">
                   <span className="text-xs text-white/40">LLM Provider</span>
-                  <span className="text-xs text-white capitalize">{llmProvider}</span>
+                  <span className="text-xs text-white">{llmProvider ? <span className="capitalize">{llmProvider}</span> : <span className="text-white/40">Skipped</span>}</span>
                 </div>
-                <div className="flex justify-between">
-                  <span className="text-xs text-white/40">Model</span>
-                  <span className="text-xs text-white">{llmModel}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-xs text-white/40">API Key</span>
-                  <span className="text-xs text-white">{llmApiKey ? "Configured" : "Not set"}</span>
-                </div>
+                {llmModel && (
+                  <div className="flex justify-between">
+                    <span className="text-xs text-white/40">Model</span>
+                    <span className="text-xs text-white">{llmModel}</span>
+                  </div>
+                )}
+                {llmApiKey && (
+                  <div className="flex justify-between">
+                    <span className="text-xs text-white/40">API Key</span>
+                    <span className="text-xs text-white">Configured</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-xs text-white/40">Auth</span>
                   <span className="text-xs text-emerald-400">JWT (auto-generated)</span>
@@ -347,6 +356,7 @@ export default function SetupPage() {
               </div>
 
               <p className="text-xs text-white/40">
+                {!llmProvider ? "LLM is optional - you can configure it later in Settings. " : ""}
                 Click "Complete Setup" to save your configuration and start using FastBot.
               </p>
             </div>
@@ -410,6 +420,16 @@ export default function SetupPage() {
                 )}
               </button>
             </div>
+          )}
+
+          {/* Skip LLM (optional) */}
+          {step === "llm" && !loading && connected && (
+            <button
+              onClick={handleSkipLlm}
+              className="w-full text-center text-xs text-white/40 hover:text-white/60 mt-3 transition-colors"
+            >
+              Skip LLM for now (configure later in Settings)
+            </button>
           )}
 
           {!connected && step !== "complete" && (
