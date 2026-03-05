@@ -354,6 +354,27 @@ async function main() {
         return;
       }
 
+      // Check for stop command
+      const trimmedContent = data.content.trim();
+      if (trimmedContent.toLowerCase() === "stop") {
+        const session = sessions.getByActor(data.actorId);
+        if (session) {
+          const aborted = sessions.abortStreaming(session.id);
+          if (aborted) {
+            io.to(session.id).emit("chat:stream:end", { sessionId: session.id, stopped: true });
+            io.to(session.id).emit("chat:message", {
+              sessionId: session.id,
+              role: "assistant",
+              content: "What would you like me to change or stop?",
+              ts: Date.now(),
+            });
+            sessions.addMessage(session.id, "assistant", "What would you like me to change or stop?");
+            log.info({ sessionId: session.id }, "Chat stream stopped by user");
+          }
+        }
+        return;
+      }
+
       // Check for orchestration trigger
       if (shouldTriggerOrchestration(data.content)) {
         const request = extractOrchestrationRequest(data.content);

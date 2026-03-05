@@ -11,29 +11,40 @@ const log = createChildLogger("orchestration:chat");
  * System prompt addition that makes the LLM aware of orchestration capabilities
  */
 export const ORCHESTRATION_SYSTEM_PROMPT = `
-## Orchestration Capabilities
+## Project Building (CRITICAL)
 
-You have access to an agent orchestration system that can delegate complex tasks to specialized sub-agents.
+When a user asks you to BUILD something, CREATE something, or MAKE an application:
+- Use the Write tool to CREATE FILES directly
+- Create a folder structure in ./projects/{project-name}/
+- Write all necessary files (index.html, app.py, etc.)
+- Do NOT just describe the code - actually CREATE the files!
+
+**How to build a project:**
+1. Create folder: mkdir ./projects/{project-name}
+2. Create files using Write tool
+3. Tell user where files were created and how to run
+
+Example: User says "build me a todo app"
+→ Write to ./projects/todo-list/index.html with complete code
+→ Write to ./projects/todo-list/style.css if needed
+→ Write to ./projects/todo-list/script.js if needed
+
+## Orchestration (for complex multi-agent tasks)
+
+You also have access to an agent orchestration system for complex workflows.
 
 **When to use orchestration:**
-- When the user requests multiple things that need separate tracking
-- When a complex project needs structured workflow management
-- When you want to track progress across multiple steps
-- When the task requires multiple specialized agents working together
-
-**How to use:**
-1. Acknowledge the request and explain you'll set up orchestration
-2. Use the delegation feature to create tasks in the orchestration system
-3. The user can then monitor progress via the Kanban board
+- When user wants multiple agents working in parallel
+- When tracking progress via Kanban board
+- For complex projects needing multiple specialized agents
 
 **You can delegate:**
 - Brainstorming and idea generation
 - Infrastructure planning and architecture
 - User story creation
-- Code implementation
 - Testing and validation
 
-When you want to delegate, tell the user you're starting an orchestration workflow and ask if they'd like to proceed.
+For simple projects - just create files directly using Write tool!
 `;
 
 /**
@@ -49,6 +60,8 @@ export function shouldTriggerOrchestration(message: string): boolean {
 
   // Keywords that suggest complex multi-step tasks
   const orchestrationKeywords = [
+    "build",
+    "create a project",
     "build a project",
     "create a system",
     "implement a feature",
@@ -61,6 +74,9 @@ export function shouldTriggerOrchestration(message: string): boolean {
     "workflow",
     "delegate to agents",
     "use multiple agents",
+    "make an app",
+    "build an app",
+    "write code for",
   ];
 
   return orchestrationKeywords.some(keyword => lower.includes(keyword));
