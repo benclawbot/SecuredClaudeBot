@@ -27,6 +27,7 @@ import {
   extractOrchestrationRequest,
   triggerOrchestration,
 } from "./orchestration/chat-integration.js";
+import { runClaudeCode, isClaudeCodeAvailable } from "./claude-runner.js";
 import { QmdStore } from "./qmd/store.js";
 import { MediaHandler } from "./media/handler.js";
 import { transcribeBuffer } from "./voice/whisper.js";
@@ -372,6 +373,47 @@ async function main() {
             log.info({ sessionId: session.id }, "Chat stream stopped by user");
           }
         }
+        return;
+      }
+
+      // Check for Claude Code build request
+      const lowerContent = data.content.toLowerCase();
+      const buildKeywords = [
+        "build", "create ", "make ", "write code", "implement",
+        "develop ", "code for", "make an app", "build an app",
+        "create a project", "build a project"
+      ];
+      const shouldUseClaudeCode = buildKeywords.some(kw => lowerContent.includes(kw));
+
+      if (shouldUseClaudeCode && isClaudeCodeAvailable()) {
+        const session = sessions.getOrCreate(data.actorId, "web");
+        sessions.addMessage(session.id, "user", data.content);
+
+        io.to(session.id).emit("chat:message", {
+          sessionId: session.id,
+          role: "user",
+          content: data.content,
+          ts: Date.now(),
+        });
+
+        io.to(session.id).emit("chat:stream:start", { sessionId: session.id });
+
+        const startMsg = `I'll build that for you using Claude Code...\n\n`;
+        io.to(session.id).emit("chat:stream:chunk", { sessionId: session.id, chunk: startMsg });
+
+        try {
+          // Run Claude Code with the prompt
+          const cwd = join(process.cwd(), "..");
+          for await (const chunk of runClaudeCode(data.content, { cwd })) {
+            io.to(session.id).emit("chat:stream:chunk", { sessionId: session.id, chunk });
+          }
+        } catch (err) {
+          const errorMsg = `\n\n❌ Error: ${err instanceof Error ? err.message : String(err)}`;
+          io.to(session.id).emit("chat:stream:chunk", { sessionId: session.id, chunk: errorMsg });
+        }
+
+        io.to(session.id).emit("chat:stream:end", { sessionId: session.id });
+        log.info({ content: data.content.substring(0, 50), sessionId: session.id }, "Claude Code executed from chat");
         return;
       }
 
