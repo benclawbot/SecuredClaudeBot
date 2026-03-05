@@ -404,8 +404,24 @@ async function main() {
         try {
           // Run Claude Code with the prompt
           const cwd = join(process.cwd(), "..");
-          for await (const chunk of runClaudeCode(data.content, { cwd })) {
-            io.to(session.id).emit("chat:stream:chunk", { sessionId: session.id, chunk });
+          for await (const chunk of runClaudeCode(data.content, { cwd }, {
+            onToolCall: (tool) => {
+              // Emit tool call to show what's happening
+              const toolInfo = `\n🔧 **${tool.name}**: ${JSON.stringify(tool.input).substring(0, 100)}...\n`;
+              io.to(session.id).emit("chat:stream:chunk", { sessionId: session.id, chunk: toolInfo });
+            },
+            onToolResult: (result) => {
+              // Emit tool result
+              const resultInfo = result.isError
+                ? `❌ Error: ${result.content}\n`
+                : `✅ Done: ${result.content.substring(0, 100)}${result.content.length > 100 ? "..." : ""}\n`;
+              io.to(session.id).emit("chat:stream:chunk", { sessionId: session.id, chunk: resultInfo });
+            },
+            onChunk: (text) => {
+              io.to(session.id).emit("chat:stream:chunk", { sessionId: session.id, chunk: text });
+            },
+          })) {
+            // Final text chunk already handled by onChunk
           }
         } catch (err) {
           const errorMsg = `\n\n❌ Error: ${err instanceof Error ? err.message : String(err)}`;

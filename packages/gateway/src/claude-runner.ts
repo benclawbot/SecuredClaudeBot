@@ -77,6 +77,9 @@ export async function* runClaudeCode(
     "--print",
     "--output-format", "stream-json",
     "--verbose",
+    "--dangerously-skip-permissions",
+    // Allow all tools explicitly
+    "--allowedTools", "Write,Bash,Read,Glob,Grep,Edit,MultiEdit,NotebookEdit,Task,WebFetch,WebSearch",
     prompt,
   ];
 
