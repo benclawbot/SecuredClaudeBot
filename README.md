@@ -124,8 +124,8 @@ sudo apt-get install -y nodejs
 # Install pnpm
 npm install -g pnpm
 
-# Install Python 3+
-sudo apt-get install python3 python3-pip python3-venv
+# Install Python 3.11+ (or python3 for any version)
+sudo apt-get install python3.11 python3-pip python3-venv || sudo apt-get install python3 python3-pip python3-venv
 
 # Clone and setup
 git clone https://github.com/benclawbot/FastBot.git
@@ -141,7 +141,7 @@ pnpm launch          # Choose dev/prod, browser opens automatically
 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
 
 # Install Node.js 22 and Python
-brew install node@22 python@3
+brew install node@22 python@3.11 || brew install node@22 python@3
 
 # Install pnpm
 npm install -g pnpm
