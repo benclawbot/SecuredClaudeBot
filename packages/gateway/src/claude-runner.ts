@@ -72,28 +72,28 @@ export async function* runClaudeCode(
     model,
   } = options;
 
+  // Default tools if none provided
+  const tools = allowedTools.length > 0
+    ? allowedTools
+    : ["Write", "Bash", "Read", "Glob", "Grep", "Edit", "MultiEdit", "NotebookEdit", "Task", "WebFetch", "WebSearch"];
+
   // Build arguments
   const args = [
     "--print",
     "--output-format", "stream-json",
     "--verbose",
-    "--dangerously-skip-permissions",
-    // Allow all tools explicitly
-    "--allowedTools", "Write,Bash,Read,Glob,Grep,Edit,MultiEdit,NotebookEdit,Task,WebFetch,WebSearch",
     prompt,
   ];
 
   // Add optional flags
   if (skipPermissions) {
-    args.unshift("--dangerously-skip-permissions");
+    args.splice(1, 0, "--dangerously-skip-permissions");
   }
+
+  args.splice(1, 0, "--allowedTools", tools.join(","));
 
   if (allowedDirs.length > 0) {
     args.push("--add-dir", ...allowedDirs);
-  }
-
-  if (allowedTools.length > 0) {
-    args.push("--allowedTools", allowedTools.join(","));
   }
 
   if (model) {
