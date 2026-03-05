@@ -176,10 +176,8 @@ async function main() {
   // Configure pnpm to auto-build native deps
   configurePnpm();
 
-  console.log("\n1. Development mode (hot reload, verbose logging)");
-  console.log("2. Production mode (optimized, runs as service with PM2)\n");
-
-  const choice = await askQuestion("Choose launch mode (1/2): ");
+  // Default to production mode
+  const choice = "2";
 
   if (choice === "1") {
     console.log("\nStarting in Development mode...\n");
