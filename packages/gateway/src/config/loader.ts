@@ -63,7 +63,15 @@ export function loadConfig(
     raw = JSON.parse(content) as Record<string, unknown>;
   } else {
     log.warn({ path: configPath }, "Config file not found, using defaults");
-    raw = { server: { port: 44512, dashboardPort: 3100, host: "0.0.0.0" } };
+    // Minimal defaults for first-run - will prompt for setup
+    raw = {
+      server: { port: 44512, dashboardPort: 3100, host: "0.0.0.0" },
+      llm: {
+        primary: { provider: "minimax", apiKey: "temp", model: "M2.5" },
+        fallbacks: []
+      },
+      security: { jwtSecret: "temp-secret-change-me", pin: "temp123" }
+    };
   }
 
   // Apply environment overrides first
