@@ -615,11 +615,34 @@ async function main() {
 
         if (data.section === "telegram" && data.data) {
           const telegramData = data.data as Record<string, unknown>;
+          const botToken = telegramData.botToken as string | undefined;
 
-          // Update config
-          if (telegramData.botToken) {
-            ctx.config.telegram.botToken = telegramData.botToken as string;
+          // Validate bot token if provided
+          if (botToken && botToken !== "") {
+            // Check for placeholder
+            if (botToken.startsWith("YOUR_")) {
+              socket.emit("settings:saved", {
+                section: "telegram",
+                success: false,
+                error: "Please enter a real Telegram bot token",
+              });
+              return;
+            }
+            // Check format (should be like 123456789:ABCdefGHIjklMNOpqrsTUVwxyz)
+            if (!/^\d+:[A-Za-z0-9_-]+$/.test(botToken)) {
+              socket.emit("settings:saved", {
+                section: "telegram",
+                success: false,
+                error: "Invalid Telegram bot token format",
+              });
+              return;
+            }
+            ctx.config.telegram.botToken = botToken;
+          } else {
+            // Empty token - clear it
+            ctx.config.telegram.botToken = "";
           }
+
           if (telegramData.approvedUsers) {
             ctx.config.telegram.approvedUsers = telegramData.approvedUsers as number[];
           }
