@@ -1,15 +1,21 @@
 import { readFileSync, existsSync, writeFileSync, mkdirSync } from "node:fs";
 import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "url";
 import { createServer } from "node:net";
 import { appConfigSchema, type AppConfig } from "./schema.js";
 import { createChildLogger } from "../logger/index.js";
 
 const log = createChildLogger("config");
 
-// Config is in project root (two levels up from packages/gateway)
-const DEFAULT_CONFIG_PATH = resolve(process.cwd(), "..", "..", "config.json");
-const ENV_FILE_PATH = resolve(process.cwd(), "..", "..", ".env");
-const PORT_FILE_PATH = resolve(process.cwd(), ".gateway-port");
+// Get the directory of this file (packages/gateway/src/config/)
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+// Project root is three levels up from config/loader.ts
+const PROJECT_ROOT = resolve(__dirname, "..", "..", "..");
+const DEFAULT_CONFIG_PATH = resolve(PROJECT_ROOT, "config.json");
+const ENV_FILE_PATH = resolve(PROJECT_ROOT, ".env");
+const PORT_FILE_PATH = resolve(__dirname, "..", ".gateway-port");
 
 // Port ranges to exclude (known defaults like OpenClaw's 18789)
 const EXCLUDED_PORTS = new Set([18789]);
