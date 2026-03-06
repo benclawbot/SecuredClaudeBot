@@ -186,4 +186,32 @@ export class MemoryStore {
   getAllForUser(userId: string): Memory[] {
     return this.getByUser(userId, 1000);
   }
+
+  /**
+   * Get all insights for a user.
+   */
+  getInsights(userId: string, limit = 50): Insight[] {
+    const rows = this.db.all<{
+      id: string;
+      user_id: string;
+      content: string;
+      source_memory_ids: string;
+      created_at: number;
+    }>(
+      `SELECT id, user_id, content, source_memory_ids, created_at
+       FROM insights
+       WHERE user_id = ?
+       ORDER BY created_at DESC
+       LIMIT ?`,
+      [userId, limit]
+    );
+
+    return rows.map((row) => ({
+      id: row.id,
+      userId: row.user_id,
+      content: row.content,
+      sourceMemoryIds: JSON.parse(row.source_memory_ids),
+      createdAt: row.created_at,
+    }));
+  }
 }
