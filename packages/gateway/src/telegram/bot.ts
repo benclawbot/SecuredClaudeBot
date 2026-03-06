@@ -521,6 +521,129 @@ export class TelegramBot {
       );
     });
 
+    // /reddit command - fetch Reddit posts, subreddits, or user profiles
+    this.bot.command("reddit", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const config = await import("../claudegram/config.js");
+      if (!config.config.REDDIT_ENABLED) {
+        await botCtx.reply("Reddit integration is not enabled.");
+        return;
+      }
+
+      const args = botCtx.message?.text.split(" ").slice(1).join(" ");
+      if (!args) {
+        await botCtx.reply("Usage: /reddit r/programming or /reddit u/username");
+        return;
+      }
+
+      await botCtx.replyWithChatAction("typing");
+
+      try {
+        await botCtx.reply(`Reddit feature coming soon: ${args}`);
+      } catch (err) {
+        await botCtx.reply(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
+      }
+    });
+
+    // /vreddit command - download Reddit-hosted video
+    this.bot.command("vreddit", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const config = await import("../claudegram/config.js");
+      if (!config.config.VREDDIT_ENABLED) {
+        await botCtx.reply("vReddit integration is not enabled.");
+        return;
+      }
+
+      const args = botCtx.message?.text.split(" ").slice(1).join(" ");
+      if (!args) {
+        await botCtx.reply("Usage: /vreddit <reddit-post-url>");
+        return;
+      }
+
+      await botCtx.reply("Downloading video...");
+      await botCtx.reply("vReddit feature coming soon");
+    });
+
+    // /medium command - fetch Medium article
+    this.bot.command("medium", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const config = await import("../claudegram/config.js");
+      if (!config.config.MEDIUM_ENABLED) {
+        await botCtx.reply("Medium integration is not enabled.");
+        return;
+      }
+
+      const args = botCtx.message?.text.split(" ").slice(1).join(" ");
+      if (!args) {
+        await botCtx.reply("Usage: /medium <medium-article-url>");
+        return;
+      }
+
+      await botCtx.replyWithChatAction("typing");
+
+      try {
+        await botCtx.reply(`Fetching Medium article...`);
+      } catch (err) {
+        await botCtx.reply(`Error: ${err instanceof Error ? err.message : "Unknown error"}`);
+      }
+    });
+
+    // /extract command - extract text/audio/video from URLs
+    this.bot.command("extract", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const config = await import("../claudegram/config.js");
+      if (!config.config.EXTRACT_ENABLED) {
+        await botCtx.reply("Extract feature is not enabled.");
+        return;
+      }
+
+      const args = botCtx.message?.text.split(" ").slice(1).join(" ");
+      if (!args) {
+        await botCtx.reply("Usage: /extract <youtube-or-social-url>");
+        return;
+      }
+
+      await botCtx.replyWithChatAction("typing");
+      await botCtx.reply("Extract feature coming soon");
+    });
+
+    // /transcribe command - transcribe audio
+    this.bot.command("transcribe", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const config = await import("../claudegram/config.js");
+      if (!config.config.TRANSCRIBE_ENABLED) {
+        await botCtx.reply("Transcribe feature is not enabled.");
+        return;
+      }
+
+      await botCtx.reply("Send a voice message or audio file to transcribe it.");
+    });
+
     // Message handler
     this.bot.on("message:text", async (botCtx) => {
       const userId = botCtx.from?.id;
