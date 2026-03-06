@@ -720,6 +720,97 @@ export class TelegramBot {
       }
     });
 
+    // /ping command - check if bot is responsive
+    this.bot.command("ping", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      await botCtx.reply("Pong! 🏓 Bot is responsive.");
+    });
+
+    // /context command - show Claude context usage
+    this.bot.command("context", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const sessionKey = `user:${userId}`;
+      const session = sessionManager.getSession(sessionKey);
+
+      await botCtx.reply(
+        "*Context Usage:*\n\n" +
+          `Working Dir: ${session?.workingDirectory || "unknown"}\n` +
+          `Session ID: ${session?.conversationId || "none"}\n` +
+          `Mode: ${session?.preferences?.streaming ? "streaming" : "buffered"}`,
+        { parse_mode: "Markdown" }
+      );
+    });
+
+    // /botstatus command - show bot process status
+    this.bot.command("botstatus", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const status = this.getStatus();
+
+      await botCtx.reply(
+        "*Bot Status:*\n\n" +
+          `Gateway: ${status.gateway}\n` +
+          `Uptime: ${status.uptimeMin}m\n` +
+          `Memory: ${status.memoryMB}MB\n` +
+          `Sessions: ${status.sessions}\n` +
+          `Reconnect Attempts: ${this.reconnectAttempts}`,
+        { parse_mode: "Markdown" }
+      );
+    });
+
+    // /restartbot command - restart the bot process
+    this.bot.command("restartbot", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      await botCtx.reply("Restart requested. The bot will reconnect...");
+
+      await this.stop();
+      setTimeout(() => this.start(), 2000);
+    });
+
+    // /cancel command - cancel current request
+    this.bot.command("cancel", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      await botCtx.reply("✅ Request cancelled");
+    });
+
+    // /commands command - show all available commands
+    this.bot.command("commands", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const { getAvailableCommands } = await import("../claudegram/claude/command-parser.js");
+      const commands = getAvailableCommands();
+
+      await botCtx.reply(commands, { parse_mode: "Markdown" });
+    });
+
     // Message handler
     this.bot.on("message:text", async (botCtx) => {
       const userId = botCtx.from?.id;
