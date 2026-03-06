@@ -64,6 +64,12 @@ export default function SettingsPage() {
   const [voiceTestResult, setVoiceTestResult] = useState<{ error?: string } | null>(null);
   const voiceSettingsLoadingRef = useRef(false);
 
+  // Claudegram Settings
+  const [claudegramWorkspaceDir, setClaudegramWorkspaceDir] = useState("");
+  const [claudegramStreamingMode, setClaudegramStreamingMode] = useState("streaming");
+  const [claudegramDangerousMode, setClaudegramDangerousMode] = useState(false);
+  const [claudegramMaxLoopIterations, setClaudegramMaxLoopIterations] = useState(5);
+
   // Feedback
   const [savedSection, setSavedSection] = useState<string | null>(null);
   const [error, setError] = useState<{ error: string; hint: string } | null>(null);
@@ -579,6 +585,118 @@ export default function SettingsPage() {
               <span className="text-xs text-white/40">
                 Plays a sample sentence with current settings
               </span>
+            </div>
+          </div>
+        </section>
+
+        {/* Claudegram Settings */}
+        <section className="bg-white/[0.03] border border-white/[0.06] rounded-2xl p-6">
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-emerald-500/10 flex items-center justify-center">
+                <Zap size={20} className="text-emerald-400" />
+              </div>
+              <div>
+                <h3 className="text-lg font-light">Claudegram Settings</h3>
+                <p className="text-xs text-white/40">Configure Claude Agent for dashboard chat</p>
+              </div>
+            </div>
+            {savedSection === "claudegram" && (
+              <span className="flex items-center gap-1 text-xs text-emerald-400">
+                <Check size={14} /> Saved
+              </span>
+            )}
+          </div>
+
+          <div className="space-y-5">
+            {/* Workspace Directory */}
+            <div>
+              <label className="block text-xs text-white/40 mb-2">Default Workspace Directory</label>
+              <input
+                type="text"
+                value={claudegramWorkspaceDir}
+                onChange={(e) => setClaudegramWorkspaceDir(e.target.value)}
+                placeholder={process.env.HOME || "/home/user"}
+                disabled={!connected}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white placeholder-white/30 focus:outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
+              />
+              <p className="text-xs text-white/30 mt-1">Default directory for Claude agent sessions</p>
+            </div>
+
+            {/* Streaming Mode */}
+            <div>
+              <label className="block text-xs text-white/40 mb-2">Streaming Mode</label>
+              <select
+                value={claudegramStreamingMode}
+                onChange={(e) => setClaudegramStreamingMode(e.target.value)}
+                disabled={!connected}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-colors appearance-none cursor-pointer disabled:opacity-50"
+                style={{ backgroundImage: "none" }}
+              >
+                <option value="streaming" className="bg-zinc-900">Streaming (real-time responses)</option>
+                <option value="wait" className="bg-zinc-900">Wait (complete response)</option>
+              </select>
+              <p className="text-xs text-white/30 mt-1">How responses are delivered to the chat</p>
+            </div>
+
+            {/* Max Loop Iterations */}
+            <div>
+              <label className="block text-xs text-white/40 mb-2">Max Loop Iterations</label>
+              <input
+                type="number"
+                value={claudegramMaxLoopIterations}
+                onChange={(e) => setClaudegramMaxLoopIterations(parseInt(e.target.value) || 5)}
+                min={1}
+                max={20}
+                disabled={!connected}
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-white focus:outline-none focus:border-emerald-500/50 transition-colors disabled:opacity-50"
+              />
+              <p className="text-xs text-white/30 mt-1">Maximum iterations for /loop command (1-20)</p>
+            </div>
+
+            {/* Dangerous Mode */}
+            <div className="flex items-center justify-between">
+              <div>
+                <label className="block text-sm text-white">Dangerous Mode</label>
+                <p className="text-xs text-white/40">Allow Claude to bypass permission prompts</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setClaudegramDangerousMode(!claudegramDangerousMode)}
+                disabled={!connected}
+                className={`relative w-12 h-6 rounded-full transition-colors ${
+                  claudegramDangerousMode ? "bg-emerald-500" : "bg-white/10"
+                } disabled:opacity-50`}
+              >
+                <span
+                  className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
+                    claudegramDangerousMode ? "left-7" : "left-1"
+                  }`}
+                />
+              </button>
+            </div>
+
+            {/* Save Button */}
+            <div className="pt-2">
+              <button
+                onClick={() => {
+                  socket?.emit("settings:update", {
+                    section: "claudegram",
+                    data: {
+                      workspaceDir: claudegramWorkspaceDir,
+                      streamingMode: claudegramStreamingMode,
+                      dangerousMode: claudegramDangerousMode,
+                      maxLoopIterations: claudegramMaxLoopIterations,
+                    },
+                  });
+                  showSaved("claudegram");
+                }}
+                disabled={!connected}
+                className="flex items-center gap-2 px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 disabled:bg-white/10 disabled:text-white/30 text-black text-sm font-medium rounded-xl transition-colors"
+              >
+                <Check size={16} />
+                Save Claudegram Settings
+              </button>
             </div>
           </div>
         </section>
