@@ -11,6 +11,8 @@ import { loadConfig, saveConfig } from "./config/loader.js";
 import { DATA_DIR } from "./config/defaults.js";
 import { createChildLogger } from "./logger/index.js";
 import { SQLiteDB } from "./memory/sqlite.js";
+import { MemoryOrchestrator } from "./memory/agent/orchestrator.js";
+import { MemoryStore } from "./memory/agent/store.js";
 import { SessionManager } from "./session/manager.js";
 import { KeyStore } from "./crypto/keystore.js";
 import { AuditLog } from "./logger/audit.js";
@@ -59,6 +61,7 @@ export interface GatewayContext {
   agents: AgentsManager | null;
   qmd: QmdStore | null;
   media: MediaHandler | null;
+  memoryAgent: MemoryOrchestrator | null;
 }
 
 async function main() {
@@ -89,6 +92,11 @@ async function main() {
   // Initialize SQLite (pure JS/WASM, no native deps)
   const db = new SQLiteDB(config.memory.dbPath);
   await db.init();
+
+  // Initialize memory orchestrator
+  const memoryStore = new MemoryStore(db);
+  const memoryAgent = new MemoryOrchestrator(memoryStore);
+  memoryAgent.start(config.memory.consolidationIntervalMinutes);
 
   // Initialize core services
   const sessions = new SessionManager();
@@ -139,6 +147,7 @@ async function main() {
     agents: null,
     qmd: null,
     media: null,
+    memoryAgent,
   };
 
   // Load bot identity, role, and memories for system prompt

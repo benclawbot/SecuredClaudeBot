@@ -72,6 +72,8 @@ export class TelegramBot {
         { command: "context", description: "Show Claude context usage" },
         { command: "cancel", description: "Cancel current request" },
         { command: "restartbot", description: "Restart the bot" },
+        { command: "remember", description: "Store a memory" },
+        { command: "recall", description: "Recall memories" },
       ]);
       log.info("Bot commands registered");
     } catch (err) {
@@ -176,9 +178,67 @@ export class TelegramBot {
           `/plan <task> - Plan mode\n` +
           `/explore <question> - Explore mode\n` +
           `/loop <task> - Iterative mode\n` +
-          `/clear - Clear conversation`,
+          `/clear - Clear conversation\n\n` +
+          `*Memory Commands*\n\n` +
+          `/remember <text> - Store a memory\n` +
+          `/recall <query> - Recall memories`,
         { parse_mode: "Markdown" }
       );
+    });
+
+    // ── Memory Commands ──
+
+    // /remember command - Store a memory
+    this.bot.command("remember", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const args = botCtx.message?.text.split(" ").slice(1).join(" ");
+      if (!args) {
+        await botCtx.reply("Usage: /remember <text to remember>");
+        return;
+      }
+
+      if (!this.ctx.memoryAgent) {
+        await botCtx.reply("Memory system not available.");
+        return;
+      }
+
+      await this.ctx.memoryAgent.storeMemory(`user:${userId}`, args, ["manual"]);
+      await botCtx.reply("✅ Memory stored");
+    });
+
+    // /recall command - Recall memories
+    this.bot.command("recall", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const args = botCtx.message?.text.split(" ").slice(1).join(" ");
+      if (!args) {
+        await botCtx.reply("Usage: /recall <search query>");
+        return;
+      }
+
+      if (!this.ctx.memoryAgent) {
+        await botCtx.reply("Memory system not available.");
+        return;
+      }
+
+      const results = await this.ctx.memoryAgent.recall(`user:${userId}`, args, 5);
+
+      if (results.length === 0) {
+        await botCtx.reply("No memories found.");
+        return;
+      }
+
+      const memories = results.map((r, i) => `${i + 1}. ${r.memory.content}`).join("\n\n");
+      await botCtx.reply(`*Your Memories*\n\n${memories}`, { parse_mode: "Markdown" });
     });
 
     // ── Claudegram Commands ──

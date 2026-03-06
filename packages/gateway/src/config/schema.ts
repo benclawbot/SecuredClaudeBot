@@ -74,6 +74,8 @@ export const memoryConfigSchema = z.object({
     .default("openai"),
   /** Embedding model */
   embeddingModel: z.string().default("text-embedding-3-small"),
+  /** Consolidation interval in minutes */
+  consolidationIntervalMinutes: z.number().default(30),
   /** Ollama base URL for embeddings */
   ollamaBaseUrl: z.string().url().optional(),
 });
