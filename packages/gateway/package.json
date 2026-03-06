@@ -19,6 +19,7 @@
     "@ai-sdk/groq": "^3.0.27",
     "@ai-sdk/mistral": "^3.0.22",
     "@ai-sdk/openai": "^3.0.39",
+    "@anthropic-ai/claude-agent-sdk": "^0.2.70",
     "@mozilla/readability": "^0.6.0",
     "@octokit/rest": "^22.0.1",
     "ai": "^6.0.111",
