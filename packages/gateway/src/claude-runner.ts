@@ -215,7 +215,7 @@ export async function* runClaudeCode(
   }
 }
 
-**
+/**
  * Check if Claude Code is available
  */
 export function isClaudeCodeAvailable(): boolean {

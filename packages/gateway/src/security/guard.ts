@@ -18,13 +18,6 @@ export interface SecurityGuardOpts {
   rateLimiter: RateLimiter;
 }
 
-export type ActionType =
-  | "url_fetch"
-  | "file_read"
-  | "file_write"
-  | "shell_exec"
-  | "api_call";
-
 export interface SecurityCheckResult {
   allowed: boolean;
   reason?: string;

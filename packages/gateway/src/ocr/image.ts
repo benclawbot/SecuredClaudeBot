@@ -58,13 +58,3 @@ export function isImageOcrSupported(mimeType: string): boolean {
   return supportedTypes.includes(mimeType.toLowerCase());
 }
 
-/**
- * Terminate the OCR worker (cleanup)
- */
-export async function terminateOcrWorker(): Promise<void> {
-  if (worker) {
-    await worker.terminate();
-    worker = null;
-    log.info("OCR worker terminated");
-  }
-}

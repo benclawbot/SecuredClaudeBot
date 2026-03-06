@@ -31,13 +31,3 @@ export interface UsageRecord {
   sessionId: string;
   timestamp: number;
 }
-
-export interface SessionInfo {
-  id: string;
-  origin: "telegram" | "web";
-  actorId: string;
-  messageCount: number;
-  createdAt: number;
-  lastActivity: number;
-  locked: boolean;
-}

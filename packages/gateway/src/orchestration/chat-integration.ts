@@ -130,32 +130,3 @@ export async function triggerOrchestration(
   }
 }
 
-/**
- * Get current orchestration status
- */
-export async function getOrchestrationStatus(): Promise<{
-  phase: string;
-  taskCount: number;
-  userChangesPending: boolean;
-} | null> {
-  try {
-    const response = await fetch("http://127.0.0.1:18790/status");
-    if (!response.ok) return null;
-    return await response.json() as { phase: string; taskCount: number; userChangesPending: boolean };
-  } catch {
-    return null;
-  }
-}
-
-/**
- * Get the Kanban board
- */
-export async function getKanbanBoard(): Promise<Record<string, unknown[]> | null> {
-  try {
-    const response = await fetch("http://127.0.0.1:18790/kanban");
-    if (!response.ok) return null;
-    return await response.json() as Record<string, unknown[]>;
-  } catch {
-    return null;
-  }
-}

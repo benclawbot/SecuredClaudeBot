@@ -289,46 +289,6 @@ export function toggleSkill(skillId: string, enabled: boolean): { success: boole
 }
 
 /**
- * Get skill content for the bot to use as a tool
- */
-export function getSkillForTool(skillId: string): { content?: string; tools?: string[]; error?: string } {
-  try {
-    const skillPath = resolve(SKILLS_DIR, skillId);
-    const skillMdPath = join(skillPath, "SKILL.md");
-    const claudeMdPath = join(skillPath, "CLAUDE.md");
-    const skillFile = existsSync(skillMdPath) ? skillMdPath : existsSync(claudeMdPath) ? claudeMdPath : null;
-
-    if (!skillFile) {
-      return { error: "Skill not found" };
-    }
-
-    const content = readFileSync(skillFile, "utf-8");
-
-    // Also load scripts
-    const scriptsDir = join(skillPath, "scripts");
-    const scripts: Record<string, string> = {};
-
-    if (existsSync(scriptsDir)) {
-      const files = readdirSync(scriptsDir);
-      for (const file of files) {
-        const scriptPath = join(scriptsDir, file);
-        if (statSync(scriptPath).isFile()) {
-          scripts[file] = readFileSync(scriptPath, "utf-8");
-        }
-      }
-    }
-
-    return {
-      content,
-      tools: extractTools(content),
-    };
-  } catch (err) {
-    log.error({ skillId, err }, "Failed to get skill content");
-    return { error: String(err) };
-  }
-}
-
-/**
  * Get all enabled skills for the system prompt
  */
 export function getSkillsForSystemPrompt(): string {

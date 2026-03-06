@@ -141,9 +141,7 @@ export class GoogleClient {
   }
 }
 
-// Re-export types
-export type { Spreadsheet, SheetValueRange, DriveFile, GoogleClientConfig } from "./types.js";
+// Re-export GoogleSheetsClient and GoogleDriveClient
+export { GoogleSheetsClient } from "./sheets.js";
+export { GoogleDriveClient } from "./drive.js";
 
-// Re-export plugins
-export { GoogleSheetsClient, googleSheetsPlugin as sheetsPlugin } from "./sheets.js";
-export { GoogleDriveClient, googleDrivePlugin as drivePlugin } from "./drive.js";
