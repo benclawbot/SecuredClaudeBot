@@ -644,6 +644,82 @@ export class TelegramBot {
       await botCtx.reply("Send a voice message or audio file to transcribe it.");
     });
 
+    // /file command - download a file from project
+    this.bot.command("file", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const args = botCtx.message?.text.split(" ").slice(1).join(" ");
+      if (!args) {
+        await botCtx.reply("Usage: /file path/to/file.txt");
+        return;
+      }
+
+      const sessionKey = `user:${userId}`;
+      const session = sessionManager.getSession(sessionKey);
+      const workingDir = session?.workingDirectory || process.env.HOME || ".";
+
+      const filePath = args.startsWith("/") ? args : `${workingDir}/${args}`;
+
+      try {
+        const { readFile, stat } = await import("fs/promises");
+        const stats = await stat(filePath);
+
+        if (stats.isDirectory()) {
+          await botCtx.reply("That's a directory, not a file.");
+          return;
+        }
+
+        if (stats.size > 10 * 1024 * 1024) {
+          await botCtx.reply("File too large (max 10MB).");
+          return;
+        }
+
+        const content = await readFile(filePath);
+        const { InputFile } = await import("grammy");
+
+        await botCtx.replyWithDocument(new InputFile(content, args.split("/").pop()!));
+      } catch (err) {
+        await botCtx.reply(`Error: ${err instanceof Error ? err.message : "File not found"}`);
+      }
+    });
+
+    // /telegraph command - view markdown with Instant View
+    this.bot.command("telegraph", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const args = botCtx.message?.text.split(" ").slice(1).join(" ");
+      if (!args) {
+        await botCtx.reply("Usage: /telegraph path/to/file.md");
+        return;
+      }
+
+      const sessionKey = `user:${userId}`;
+      const session = sessionManager.getSession(sessionKey);
+      const workingDir = session?.workingDirectory || process.env.HOME || ".";
+
+      const filePath = args.startsWith("/") ? args : `${workingDir}/${args}`;
+
+      try {
+        const { readFile } = await import("fs/promises");
+        const content = await readFile(filePath, "utf-8");
+
+        const preview = content.slice(0, 1000);
+        await botCtx.reply(`*${args}*\n\n${preview}${content.length > 1000 ? "..." : ""}`, {
+          parse_mode: "Markdown",
+        });
+      } catch (err) {
+        await botCtx.reply(`Error: ${err instanceof Error ? err.message : "File not found"}`);
+      }
+    });
+
     // Message handler
     this.bot.on("message:text", async (botCtx) => {
       const userId = botCtx.from?.id;
