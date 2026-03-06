@@ -23,6 +23,7 @@ import { TailscaleManager } from "./tailscale/manager.js";
 import { AgentsManager } from "./agents/manager.js";
 import { RcaScheduler } from "./agents/rca-scheduler.js";
 import { SelfImprovementScheduler } from "./agents/self-improvement.js";
+import { sendToAgent } from "./claude/agent.js";
 import {
   shouldTriggerOrchestration,
   extractOrchestrationRequest,
@@ -547,6 +548,42 @@ async function main() {
         socket.emit("chat:error", {
           error: "Failed to generate response. Check LLM configuration.",
         });
+        io.to(session.id).emit("chat:stream:end", { sessionId: session.id });
+      }
+    });
+
+    // ── Claude Agent (for dashboard using Claude Code) ──
+    socket.on("claude:message", async (data: { actorId: string; content: string; model?: string }) => {
+      // Authentication check
+      if (!isAuthenticated(socket)) {
+        socket.emit("chat:error", { error: "Authentication required" });
+        return;
+      }
+
+      const session = sessions.getOrCreate(data.actorId, "web");
+      sessions.addMessage(session.id, "user", data.content);
+
+      io.to(session.id).emit("chat:message", {
+        sessionId: session.id,
+        role: "user",
+        content: data.content,
+        ts: Date.now(),
+      });
+
+      io.to(session.id).emit("chat:stream:start", { sessionId: session.id });
+
+      try {
+        const response = await sendToAgent(data.actorId, data.content, {
+          model: data.model || "opus",
+          onProgress: (text) => {
+            io.to(session.id).emit("chat:stream:chunk", { sessionId: session.id, chunk: text });
+          }
+        });
+
+        sessions.addMessage(session.id, "assistant", response.text);
+        io.to(session.id).emit("chat:stream:end", { sessionId: session.id });
+      } catch (err) {
+        io.to(session.id).emit("chat:error", { error: err instanceof Error ? err.message : "Unknown error" });
         io.to(session.id).emit("chat:stream:end", { sessionId: session.id });
       }
     });
