@@ -183,6 +183,37 @@ export class TelegramBot {
       await botCtx.reply(`✅ Project set to: ${args}`);
     });
 
+    // /newproject command - create new project directory
+    this.bot.command("newproject", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const args = botCtx.message?.text.split(" ").slice(1).join(" ");
+      if (!args) {
+        await botCtx.reply("Usage: /newproject my-project-name");
+        return;
+      }
+
+      const workspaceDir = process.env.WORKSPACE_DIR || process.env.HOME || ".";
+      const projectPath = `${workspaceDir}/${args}`;
+
+      try {
+        const { mkdir } = await import("fs/promises");
+        await mkdir(projectPath, { recursive: true });
+
+        const sessionKey = `user:${userId}`;
+        sessionManager.setWorkingDirectory(sessionKey, projectPath);
+        clearConversation(sessionKey);
+
+        await botCtx.reply(`✅ Created and switched to: ${projectPath}`);
+      } catch (err) {
+        await botCtx.reply(`Error creating project: ${err instanceof Error ? err.message : "Unknown error"}`);
+      }
+    });
+
     // /plan command
     this.bot.command("plan", async (botCtx) => {
       const userId = botCtx.from?.id;
