@@ -36,6 +36,8 @@ import { transcribeBuffer } from "./voice/whisper.js";
 import { textToSpeech } from "./voice/tts.js";
 import { getBotSystemPrompt } from "./bot/context.js";
 import { verifyToken, generateJwtSecret, issueToken } from "./security/jwt.js";
+import { createMemoryRouter } from "./api/memory.js";
+import express from "express";
 import * as SkillsManager from "./skills/manager.js";
 import { GoogleClient, GoogleSheetsClient, GoogleDriveClient } from "./integrations/google/index.js";
 import { MicrosoftClient } from "./integrations/microsoft.js";
@@ -2017,9 +2019,23 @@ async function main() {
     }
   }
 
+  // Create Express app for REST API endpoints
+  const expressApp = express();
+  expressApp.use(express.json());
+
+  // Mount memory API router
+  const memoryRouter = createMemoryRouter(memoryAgent, jwtSecret);
+  expressApp.use("/api/memory", memoryRouter);
+
   // Simple HTTP endpoint for dashboard to discover gateway port and serve media
   httpServer.on("request", (req, res) => {
     const url = req.url || "";
+
+    // Handle Express routes
+    if (url.startsWith("/api/")) {
+      expressApp(req, res);
+      return;
+    }
 
     // Gateway port discovery
     if (url === "/.gateway-port" || url === "/api/port") {
