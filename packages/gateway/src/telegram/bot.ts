@@ -271,6 +271,93 @@ export class TelegramBot {
       await botCtx.reply("✅ Conversation cleared");
     });
 
+    // /sessions command - list all sessions
+    this.bot.command("sessions", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const sessionKey = `user:${userId}`;
+      const history = sessionManager.getSessionHistory(sessionKey, 10);
+
+      if (history.length === 0) {
+        await botCtx.reply("No sessions found.");
+        return;
+      }
+
+      const lines = ["*Your Recent Sessions:*\n"];
+      history.forEach((entry, i) => {
+        const date = new Date(entry.lastActivity).toLocaleDateString();
+        const preview = entry.lastMessagePreview?.slice(0, 50) || "empty";
+        lines.push(`${i + 1}. ${entry.projectPath} - ${date}`);
+        lines.push(`   ${preview}...`);
+      });
+
+      await botCtx.reply(lines.join("\n"), { parse_mode: "Markdown" });
+    });
+
+    // /resume command - pick from recent sessions
+    this.bot.command("resume", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const sessionKey = `user:${userId}`;
+      const lastSession = sessionManager.resumeLastSession(sessionKey);
+
+      if (lastSession) {
+        await botCtx.reply(`✅ Resumed session for: ${lastSession.workingDirectory}`);
+      } else {
+        await botCtx.reply("No previous session found.");
+      }
+    });
+
+    // /continue command - alias for resume
+    this.bot.command("continue", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const sessionKey = `user:${userId}`;
+      const lastSession = sessionManager.resumeLastSession(sessionKey);
+
+      if (lastSession) {
+        await botCtx.reply(`✅ Continued session: ${lastSession.workingDirectory}`);
+      } else {
+        await botCtx.reply("No session to continue.");
+      }
+    });
+
+    // /teleport command - move session to terminal
+    this.bot.command("teleport", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      await botCtx.reply("Session forked to terminal. You can now continue in terminal.");
+    });
+
+    // /softreset command - clear conversation but keep session
+    this.bot.command("softreset", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId || !this.approval.isApproved(userId)) {
+        await botCtx.reply("Not authorized.");
+        return;
+      }
+
+      const sessionKey = `user:${userId}`;
+      clearConversation(sessionKey);
+      await botCtx.reply("✅ Conversation reset (session preserved)");
+    });
+
     // /models command
     this.bot.command("models", async (botCtx) => {
       const userId = botCtx.from?.id;
