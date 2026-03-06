@@ -17,6 +17,7 @@ import { AuditLog } from "./logger/audit.js";
 import { RateLimiter } from "./security/rate-limiter.js";
 import { LlmRouter } from "./llm/router.js";
 import { TelegramBot } from "./telegram/bot.js";
+import { createClaudegramBot } from "./telegram/claudegram-handler.js";
 import { PlaywrightBridge } from "./playwright/bridge.js";
 import { TailscaleManager } from "./tailscale/manager.js";
 import { AgentsManager } from "./agents/manager.js";
@@ -143,14 +144,24 @@ async function main() {
   // Load bot identity, role, and memories for system prompt
   const botSystemPrompt = getBotSystemPrompt();
 
-  // Initialize Telegram bot if token is configured
+  // Initialize Claudegram Telegram bot if token is configured
   let telegramBot: TelegramBot | null = null;
+  let claudegramBot: any = null;
   if (config.telegram.botToken) {
-    telegramBot = new TelegramBot(ctx);
-    ctx.telegram = telegramBot;
-    telegramBot.start().catch((err) => {
-      log.error({ err }, "Failed to start Telegram bot");
-    });
+    // Use Claudegram handler instead of old TelegramBot
+    try {
+      claudegramBot = createClaudegramBot(config.telegram.botToken);
+      await claudegramBot.start();
+      log.info("Claudegram Telegram bot started");
+    } catch (err) {
+      log.error({ err }, "Failed to start Claudegram Telegram bot");
+      // Fall back to old TelegramBot
+      telegramBot = new TelegramBot(ctx);
+      ctx.telegram = telegramBot;
+      telegramBot.start().catch((err) => {
+        log.error({ err }, "Failed to start Telegram bot");
+      });
+    }
   } else {
     log.info("Telegram bot token not configured, skipping Telegram bot initialization");
   }
