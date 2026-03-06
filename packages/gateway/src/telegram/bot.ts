@@ -1,4 +1,4 @@
-import { Bot, type Context } from "grammy";
+import { Bot, type Context, InlineKeyboard } from "grammy";
 import { createChildLogger } from "../logger/index.js";
 import { ApprovalManager } from "./approval.js";
 import { chunkMessage } from "./chunker.js";
@@ -32,6 +32,7 @@ export class TelegramBot {
     this.systemPrompt = getBotSystemPrompt();
     this.mediaHandler = new MediaHandler();
     this.setupHandlers();
+    this.setupCallbackQueries();
     this.registerCommands();
   }
 
@@ -408,7 +409,7 @@ export class TelegramBot {
       await botCtx.reply("✅ Conversation reset (session preserved)");
     });
 
-    // /model command - show or set AI model
+    // /model command - show or set AI model (with inline keyboard)
     this.bot.command("model", async (botCtx) => {
       const userId = botCtx.from?.id;
       if (!userId || !this.approval.isApproved(userId)) {
@@ -419,30 +420,32 @@ export class TelegramBot {
       const args = botCtx.message?.text.split(" ").slice(1).join(" ").toLowerCase();
       const validModels = ["opus", "sonnet", "haiku"];
 
-      if (!args) {
-        await botCtx.reply(
-          "*Available Models:*\n\n" +
-            "• `opus` - Most capable\n" +
-            "• `sonnet` - Balanced\n" +
-            "• `haiku` - Fastest\n\n" +
-            "Usage: /model sonnet",
-          { parse_mode: "Markdown" }
-        );
+      // If model specified, set it
+      if (args) {
+        if (!validModels.includes(args)) {
+          await botCtx.reply(`Invalid model. Use: ${validModels.join(", ")}`);
+          return;
+        }
+
+        const sessionKey = `user:${userId}`;
+        const session = sessionManager.getSession(sessionKey);
+        if (session) {
+          session.preferences = { ...session.preferences, model: args };
+        }
+        await botCtx.reply(`✅ Model set to: ${args}`);
         return;
       }
 
-      if (!validModels.includes(args)) {
-        await botCtx.reply(`Invalid model. Use: ${validModels.join(", ")}`);
-        return;
-      }
+      // Show inline keyboard for model selection
+      const keyboard = new InlineKeyboard()
+        .text("🔵 Opus", "model_opus")
+        .text("🟢 Sonnet", "model_sonnet")
+        .text("⚡ Haiku", "model_haiku");
 
-      const sessionKey = `user:${userId}`;
-      const session = sessionManager.getSession(sessionKey);
-      if (session) {
-        session.preferences = { ...session.preferences, model: args };
-      }
-
-      await botCtx.reply(`✅ Model set to: ${args}`);
+      await botCtx.reply("*Select AI Model:*", {
+        parse_mode: "Markdown",
+        reply_markup: keyboard,
+      });
     });
 
     // /mode command - toggle streaming mode
@@ -485,7 +488,7 @@ export class TelegramBot {
       await botCtx.reply(`✅ Terminal UI: ${newTUI ? "ON" : "OFF"}`);
     });
 
-    // /provider command - switch AI provider
+    // /provider command - switch AI provider (with inline keyboard)
     this.bot.command("provider", async (botCtx) => {
       const userId = botCtx.from?.id;
       if (!userId || !this.approval.isApproved(userId)) {
@@ -496,29 +499,31 @@ export class TelegramBot {
       const args = botCtx.message?.text.split(" ").slice(1).join(" ").toLowerCase();
       const validProviders = ["claude", "opencode"];
 
-      if (!args) {
-        await botCtx.reply(
-          "*Available Providers:*\n\n" +
-            "• `claude` - Anthropic Claude\n" +
-            "• `opencode` - OpenCode\n\n" +
-            "Usage: /provider claude",
-          { parse_mode: "Markdown" }
-        );
+      // If provider specified, set it
+      if (args) {
+        if (!validProviders.includes(args)) {
+          await botCtx.reply(`Invalid provider. Use: ${validProviders.join(", ")}`);
+          return;
+        }
+
+        const sessionKey = `user:${userId}`;
+        const session = sessionManager.getSession(sessionKey);
+        if (session) {
+          session.preferences = { ...session.preferences, provider: args };
+        }
+        await botCtx.reply(`✅ Provider set to: ${args}`);
         return;
       }
 
-      if (!validProviders.includes(args)) {
-        await botCtx.reply(`Invalid provider. Use: ${validProviders.join(", ")}`);
-        return;
-      }
+      // Show inline keyboard for provider selection
+      const keyboard = new InlineKeyboard()
+        .text("🧠 Claude", "provider_claude")
+        .text("💻 OpenCode", "provider_opencode");
 
-      const sessionKey = `user:${userId}`;
-      const session = sessionManager.getSession(sessionKey);
-      if (session) {
-        session.preferences = { ...session.preferences, provider: args };
-      }
-
-      await botCtx.reply(`✅ Provider set to: ${args}`);
+      await botCtx.reply("*Select AI Provider:*", {
+        parse_mode: "Markdown",
+        reply_markup: keyboard,
+      });
     });
 
     // /models command
@@ -1361,5 +1366,70 @@ export class TelegramBot {
       memoryMB: Math.round(process.memoryUsage().heapUsed / 1024 / 1024),
       sessions: this.ctx.sessions.listActive().length,
     };
+  }
+
+  // Inline keyboard callbacks
+  private setupCallbackQueries(): void {
+    // Model selection callbacks
+    this.bot.callbackQuery("model_opus", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId) return;
+
+      const sessionKey = `user:${userId}`;
+      const session = sessionManager.getSession(sessionKey);
+      if (session) {
+        session.preferences = { ...session.preferences, model: "opus" };
+      }
+      await botCtx.editMessageText("✅ Model: Opus");
+    });
+
+    this.bot.callbackQuery("model_sonnet", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId) return;
+
+      const sessionKey = `user:${userId}`;
+      const session = sessionManager.getSession(sessionKey);
+      if (session) {
+        session.preferences = { ...session.preferences, model: "sonnet" };
+      }
+      await botCtx.editMessageText("✅ Model: Sonnet");
+    });
+
+    this.bot.callbackQuery("model_haiku", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId) return;
+
+      const sessionKey = `user:${userId}`;
+      const session = sessionManager.getSession(sessionKey);
+      if (session) {
+        session.preferences = { ...session.preferences, model: "haiku" };
+      }
+      await botCtx.editMessageText("✅ Model: Haiku");
+    });
+
+    // Provider selection callbacks
+    this.bot.callbackQuery("provider_claude", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId) return;
+
+      const sessionKey = `user:${userId}`;
+      const session = sessionManager.getSession(sessionKey);
+      if (session) {
+        session.preferences = { ...session.preferences, provider: "claude" };
+      }
+      await botCtx.editMessageText("✅ Provider: Claude");
+    });
+
+    this.bot.callbackQuery("provider_opencode", async (botCtx) => {
+      const userId = botCtx.from?.id;
+      if (!userId) return;
+
+      const sessionKey = `user:${userId}`;
+      const session = sessionManager.getSession(sessionKey);
+      if (session) {
+        session.preferences = { ...session.preferences, provider: "opencode" };
+      }
+      await botCtx.editMessageText("✅ Provider: OpenCode");
+    });
   }
 }
