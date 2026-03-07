@@ -11,6 +11,45 @@ const log = createChildLogger("skills");
 
 const SKILLS_DIR = join(process.cwd(), "data", "skills");
 
+/**
+ * Validate git URL for security - only allow HTTPS and block dangerous protocols
+ */
+function validateGitUrl(url: string): { valid: boolean; error?: string } {
+  try {
+    const parsed = new URL(url);
+
+    // Only allow HTTPS protocol
+    if (parsed.protocol !== "https:") {
+      return { valid: false, error: "Only HTTPS URLs are allowed for security reasons" };
+    }
+
+    // Block localhost and private network URLs
+    const hostname = parsed.hostname.toLowerCase();
+    if (hostname === "localhost" ||
+        hostname.startsWith("127.") ||
+        hostname.startsWith("10.") ||
+        hostname.startsWith("192.168.") ||
+        hostname.startsWith("172.16.") ||
+        hostname.startsWith("172.17.") ||
+        hostname.startsWith("172.18.") ||
+        hostname.startsWith("172.19.") ||
+        hostname.startsWith("172.2") ||
+        hostname.startsWith("172.30.") ||
+        hostname.startsWith("172.31.")) {
+      return { valid: false, error: "Localhost and private network URLs are not allowed" };
+    }
+
+    // Block common internal/reserved hostnames
+    if (hostname === "0.0.0.0" || hostname === "::1" || hostname === "internal" || hostname === "metadata") {
+      return { valid: false, error: "This hostname is not allowed" };
+    }
+
+    return { valid: true };
+  } catch {
+    return { valid: false, error: "Invalid URL format" };
+  }
+}
+
 export interface InstalledSkill {
   id: string;
   name: string;
@@ -158,11 +197,22 @@ export async function installSkill(source: string): Promise<{ success: boolean; 
     if (source.includes("github.com") || source.endsWith(".git")) {
       // It's a git repository
       if (source.startsWith("git@")) {
-        // Convert SSH to HTTPS
-        repoUrl = source.replace("git@github.com:", "https://github.com/");
+        // SSH URLs are not allowed
+        return { success: false, error: "SSH git URLs are not allowed. Use HTTPS URLs only." };
       } else if (!source.startsWith("https://")) {
+        // Check if it's a local path
+        if (source.startsWith("file://") || source.startsWith("/") || source.startsWith(".")) {
+          return { success: false, error: "Local file paths are not allowed. Use HTTPS URLs only." };
+        }
         repoUrl = `https://github.com/${source}`;
       }
+
+      // Validate the final URL for security
+      const validation = validateGitUrl(repoUrl);
+      if (!validation.valid) {
+        return { success: false, error: validation.error };
+      }
+
       // Extract repo name
       const match = repoUrl.match(/github\.com\/[^\/]+\/([^.]+)/);
       skillName = match ? match[1] : randomBytes(4).toString("hex");
@@ -181,9 +231,9 @@ export async function installSkill(source: string): Promise<{ success: boolean; 
     if (repoUrl.includes("github.com")) {
       log.info({ source: repoUrl, skillName }, "Cloning skill repository");
 
-      // Use git clone
+      // Use git clone with --no-checkout to validate before checking out files
       await new Promise<void>((resolve, reject) => {
-        const proc = spawn("git", ["clone", "--depth", "1", repoUrl, skillPath], {
+        const proc = spawn("git", ["clone", "--depth", "1", "--no-checkout", repoUrl, skillPath], {
           stdio: "pipe",
         });
 
@@ -195,6 +245,27 @@ export async function installSkill(source: string): Promise<{ success: boolean; 
             resolve();
           } else {
             reject(new Error(`Git clone failed: ${stderr}`));
+          }
+        });
+
+        proc.on("error", reject);
+      });
+
+      // Now checkout the files after validating the repository was cloned successfully
+      await new Promise<void>((resolve, reject) => {
+        const proc = spawn("git", ["checkout"], {
+          cwd: skillPath,
+          stdio: "pipe",
+        });
+
+        let stderr = "";
+        proc.stderr?.on("data", (d) => { stderr += d.toString(); });
+
+        proc.on("close", (code) => {
+          if (code === 0) {
+            resolve();
+          } else {
+            reject(new Error(`Git checkout failed: ${stderr}`));
           }
         });
 
