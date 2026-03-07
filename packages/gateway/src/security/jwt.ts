@@ -67,6 +67,13 @@ export function verifyToken(
 
     const [headerB64, payloadB64, signatureB64] = parts;
 
+    // Validate algorithm to prevent algorithm confusion attacks
+    const header = JSON.parse(Buffer.from(headerB64, "base64url").toString("utf-8"));
+    if (header.alg !== "HS256") {
+      log.warn({ alg: header.alg }, "JWT invalid algorithm");
+      return null;
+    }
+
     // Verify signature using timing-safe comparison
     const unsigned = `${headerB64}.${payloadB64}`;
     const expectedSig = sign(unsigned, secret);
