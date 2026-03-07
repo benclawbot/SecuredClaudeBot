@@ -333,7 +333,7 @@ export class LlmRouter {
 
   /**
    * Stream a response. Yields text chunks.
-   * Only tries primary provider (streaming + fallback is complex).
+   * Tries primary, then fallbacks in order.
    */
   async *stream(
     messages: any[],
@@ -341,60 +341,86 @@ export class LlmRouter {
     systemPrompt?: string,
     abortSignal?: AbortSignal
   ): AsyncGenerator<string, void, unknown> {
-    const provider = this.config.primary;
+    const providers = [this.config.primary, ...this.config.fallbacks];
+    let lastError: Error | null = null;
 
-    // Validate config before attempting request
-    if (!provider.apiKey || provider.apiKey === "YOUR_ANTHROPIC_API_KEY_HERE") {
-      throw new Error(
-        `Invalid API key for ${provider.provider}. Please configure a valid API key in Settings.`
-      );
-    }
-
-    const model = createModel(provider);
-
-    const result = streamText({
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      model: model as any,
-      messages,
-      ...(systemPrompt ? { system: systemPrompt } : {}),
-    });
-
-    let totalIn = 0;
-    let totalOut = 0;
-
-    // If abort signal is provided, listen for abort
-    if (abortSignal) {
-      abortSignal.addEventListener("abort", () => {
-        // The stream will be stopped when we throw
-      });
-    }
-
-    try {
-      for await (const chunk of result.textStream) {
-        // Check if aborted
-        if (abortSignal?.aborted) {
-          throw new Error("Stream aborted");
+    for (const provider of providers) {
+      try {
+        // Validate config before attempting request
+        if (provider.provider !== "ollama" && (!provider.apiKey || provider.apiKey === "YOUR_ANTHROPIC_API_KEY_HERE")) {
+          throw new Error(
+            `Invalid API key for ${provider.provider}. Please configure a valid API key in Settings.`
+          );
         }
-        yield chunk;
-        totalOut += chunk.length; // Approximate — real count from usage
+
+        const model = createModel(provider);
+
+        const result = streamText({
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          model: model as any,
+          messages,
+          ...(systemPrompt ? { system: systemPrompt } : {}),
+        });
+
+        let totalIn = 0;
+        let totalOut = 0;
+
+        // If abort signal is provided, listen for abort
+        if (abortSignal) {
+          abortSignal.addEventListener("abort", () => {
+            // The stream will be stopped when we throw
+          });
+        }
+
+        try {
+          for await (const chunk of result.textStream) {
+            // Check if aborted
+            if (abortSignal?.aborted) {
+              throw new Error("Stream aborted");
+            }
+            yield chunk;
+            totalOut += chunk.length; // Approximate — real count from usage
+          }
+        } catch (err) {
+          if (abortSignal?.aborted || (err instanceof Error && err.message === "Stream aborted")) {
+            // Don't record usage for aborted streams
+            return;
+          }
+          throw err;
+        }
+
+        // Record usage from final result
+        const finalResult = await result;
+        this.usage.record(
+          provider.provider,
+          provider.model,
+          (finalResult.usage as any)?.inputTokens ?? totalIn,
+          (finalResult.usage as any)?.outputTokens ?? totalOut,
+          sessionId
+        );
+
+        log.info(
+          {
+            provider: provider.provider,
+            model: provider.model,
+            tokensIn: (finalResult.usage as any)?.inputTokens ?? totalIn,
+            tokensOut: (finalResult.usage as any)?.outputTokens ?? totalOut,
+          },
+          "LLM stream completed"
+        );
+
+        return; // Success - exit the loop
+      } catch (err) {
+        lastError = err instanceof Error ? err : new Error(String(err));
+        log.warn(
+          { provider: provider.provider, model: provider.model, err: lastError },
+          "LLM provider failed in stream, trying fallback"
+        );
+        // Continue to next provider
       }
-    } catch (err) {
-      if (abortSignal?.aborted || (err instanceof Error && err.message === "Stream aborted")) {
-        // Don't record usage for aborted streams
-        return;
-      }
-      throw err;
     }
 
-    // Record usage from final result
-    const finalResult = await result;
-    this.usage.record(
-      provider.provider,
-      provider.model,
-      (finalResult.usage as any)?.inputTokens ?? totalIn,
-      (finalResult.usage as any)?.outputTokens ?? totalOut,
-      sessionId
-    );
+    throw lastError || new Error("All LLM providers failed");
   }
 
   getUsage(): UsageTracker {
