@@ -71,12 +71,12 @@ export function loadConfig(
     log.warn({ path: configPath }, "Config file not found, using defaults");
     // Minimal defaults for first-run - will prompt for setup
     raw = {
-      server: { port: 44512, dashboardPort: 3100, host: "0.0.0.0" },
+      server: { port: 44512, dashboardPort: 3100, host: "127.0.0.1" },
       llm: {
         primary: { provider: "minimax", apiKey: "temp", model: "M2.5" },
         fallbacks: []
       },
-      security: { jwtSecret: "temp-secret-change-me", pin: "temp123" }
+      security: { jwtSecret: "temp-secret-change-me", pin: "" }
     };
   }
 
