@@ -5,9 +5,19 @@ import { spawn } from "node:child_process";
 import { createChildLogger } from "../logger/index.js";
 import { writeFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync, unlinkSync, readFileSync } from "node:fs";
 
 const log = createChildLogger("voice");
+
+/**
+ * Validate that a path doesn't contain shell special characters
+ */
+function validateAudioPath(audioPath: string): void {
+  const dangerousChars = /[;&|`$()<>]/;
+  if (dangerousChars.test(audioPath)) {
+    throw new Error("Audio path contains invalid characters");
+  }
+}
 
 export interface TranscriptionResult {
   text: string;
@@ -22,9 +32,16 @@ export async function transcribeAudio(
   audioPath: string,
   model: string = "base"
 ): Promise<TranscriptionResult> {
+  // Validate path doesn't contain dangerous characters
+  validateAudioPath(audioPath);
+
   return new Promise((resolve, reject) => {
     const tempDir = mkdtempSync("/tmp/whisper-");
     const outputPath = join(tempDir, "transcription.json");
+    const inputPath = join(tempDir, "audio_path.txt");
+
+    // Write audio path to temp file to avoid command injection
+    writeFileSync(inputPath, audioPath);
 
     const process = spawn("python3", [
       "-c",
@@ -33,9 +50,13 @@ import sys
 import json
 from faster_whisper import WhisperModel
 
+# Read audio path from temp file to avoid command injection
+with open("${inputPath.replace(/\\/g, "\\\\")}", "r") as f:
+    audio_path = f.read().strip()
+
 model_size = "${model}"
 model = WhisperModel(model_size, device="cpu", compute_type="int8")
-segments, info = model.transcribe("${audioPath.replace(/\\/g, "\\\\")}", beam_size=5)
+segments, info = model.transcribe(audio_path, beam_size=5)
 
 text = " ".join([segment.text for segment in segments])
 result = {
@@ -61,6 +82,10 @@ print(json.dumps(result))
     });
 
     process.on("close", (code) => {
+      // Cleanup temp files
+      try { unlinkSync(inputPath); } catch {}
+      try { unlinkSync(outputPath); } catch {}
+
       if (code === 0) {
         try {
           const result = JSON.parse(stdout.trim());
@@ -75,6 +100,8 @@ print(json.dumps(result))
     });
 
     process.on("error", (err) => {
+      // Cleanup on error
+      try { unlinkSync(inputPath); } catch {}
       log.error({ err }, "Failed to start Whisper");
       reject(err);
     });

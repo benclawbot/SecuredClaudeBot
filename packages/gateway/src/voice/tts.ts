@@ -224,6 +224,16 @@ async function textToSpeechGoogle(text: string, _apiKey: string): Promise<TtsRes
 }
 
 /**
+ * Validate output path doesn't contain dangerous characters
+ */
+function validateOutputPath(outputPath: string): void {
+  const dangerousChars = /[;&|`$()<>]/;
+  if (dangerousChars.test(outputPath)) {
+    throw new Error("Output path contains invalid characters");
+  }
+}
+
+/**
  * Google Translate TTS (free, uses gTTS library)
  */
 async function textToSpeechGTTS(text: string, lang: string = "en", speed: number = 1.0): Promise<TtsResult> {
@@ -234,13 +244,25 @@ async function textToSpeechGTTS(text: string, lang: string = "en", speed: number
   return new Promise((resolve, reject) => {
     const tempDir = mkdtempSync("/tmp/tts-");
     const outputPath = join(tempDir, "output.mp3");
+    const inputPath = join(tempDir, "input.txt");
+
+    // Validate output path
+    validateOutputPath(outputPath);
+
+    // Write text to temp file to avoid command injection
+    writeFileSync(inputPath, text);
 
     const process = spawn("python3", [
       "-c",
       `
 from gtts import gTTS
-tts = gTTS(text=${JSON.stringify(text)}, lang=${JSON.stringify(lang)}, slow=${slow})
-tts.save(${JSON.stringify(outputPath)})
+
+# Read text from temp file to avoid command injection
+with open("${inputPath.replace(/\\/g, "\\\\")}", "r") as f:
+    text = f.read()
+
+tts = gTTS(text=text, lang="${lang}", slow=${slow})
+tts.save("${outputPath.replace(/\\/g, "\\\\")}")
 `,
     ], {
       stdio: ["ignore", "pipe", "pipe"],
@@ -249,6 +271,9 @@ tts.save(${JSON.stringify(outputPath)})
     let stderr = "";
     process.stderr?.on("data", (data: Buffer) => { stderr += data.toString(); });
     process.on("close", (code: number) => {
+      // Cleanup temp input file
+      try { unlinkSync(inputPath); } catch {}
+
       if (code === 0) {
         try {
           const audio = readFileSync(outputPath);
@@ -263,6 +288,8 @@ tts.save(${JSON.stringify(outputPath)})
       }
     });
     process.on("error", (err: Error) => {
+      // Cleanup on error
+      try { unlinkSync(inputPath); } catch {}
       log.error({ err }, "Failed to start gTTS");
       reject(err);
     });
