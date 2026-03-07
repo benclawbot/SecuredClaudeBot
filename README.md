@@ -66,7 +66,9 @@ wsl --install
 
 ## Features
 
-- **Telegram Bot** - Control your AI agent via Telegram (text, voice, photos, and documents)
+- **Claudegram Chat** - Full-featured chat interface with streaming responses, command autocomplete, and file attachments
+- **Always-On Memory Agent** - Persistent memory with Store, Recall, Consolidate, and Query agents for long-term context
+- **Telegram Bot** - 30+ commands including /remember, /recall, /plan, /explore, /loop, /delegate, and more
 - **Multi-Provider LLM Router** - OpenAI, Anthropic, Google, Mistral, Cohere, DeepSeek, Groq, Ollama, MiniMax, and more
 - **Web Dashboard** - Next.js 14 PWA for mission control
 - **Setup Wizard** - First-run guided configuration (Telegram, LLM, JWT authentication)
@@ -86,7 +88,7 @@ wsl --install
 - **OCR & Document Understanding** - Extract text from images (Tesseract.js), PDFs, and Office documents
 - **File Upload with LLM Processing** - Automatically process uploaded files with AI analysis
 - **Audit Logging** - Full activity tracking
-- **Security Hardened** - SSRF blocking, path traversal prevention, rate limiting
+- **Security Hardened** - SSRF blocking, path traversal prevention, rate limiting, JWT algorithm validation
 - **Voice Input** - Whisper transcription for voice notes (Telegram & Dashboard)
 - **Voice Output** - TTS synthesis via gTTS, ElevenLabs, OpenAI, Google, Polly, Coqui, or Piper
 - **Command Autocomplete** - Type `/` in chat to see available commands
@@ -538,13 +540,19 @@ This enables the AI to reference your codebase directly during conversations.
 
 ### Implemented Protections
 
-1. **SSRF Blocking** - Prevents access to internal networks
-2. **Path Traversal Prevention** - Blocks directory traversal attacks
+1. **SSRF Blocking** - Prevents access to internal networks (IPv4, IPv6, including mapped addresses)
+2. **Path Traversal Prevention** - Blocks directory traversal attacks in media handler and chat
 3. **Binary Allowlist** - Only allowed executables can run
-4. **Rate Limiting** - Prevents abuse
+4. **Rate Limiting** - Prevents abuse on all endpoints
 5. **Audit Logging** - Append-only log of all activities
 6. **Encrypted Secrets** - AES-256-GCM encryption with PBKDF2 key derivation
-7. **PIN Protection** - All secrets encrypted with user PIN
+7. **JWT Algorithm Validation** - Prevents algorithm confusion attacks
+8. **Command Injection Prevention** - Voice modules use temp files instead of string embedding
+9. **File Size Limits** - 25MB max on Telegram file downloads
+10. **Fetch Timeouts** - 30s timeout on all external fetches
+11. **Response Size Limits** - 10MB max on link parsing
+12. **OAuth CSRF Protection** - State parameter validation on OAuth callbacks
+13. **Dashboard API Authentication** - JWT required on gateway API routes
 
 ### Audit Events
 
@@ -574,13 +582,75 @@ The dashboard uses JWT-based authentication:
 
 ## Commands (Telegram)
 
+### Core Commands
 ```
 /start - Start the bot
-/help - Show help message
-/status - Check system status
+/help - Show all commands
+/status - Check system status and session info
+/ping - Health check
+/clear - Clear conversation history
+/commands - List all available commands
+/restartbot - Restart the gateway service
+/cancel - Cancel current operation
+```
+
+### Memory Commands
+```
+/remember <text> - Store a memory
+/recall <query> - Recall relevant memories
+/insights - View generated insights
+```
+
+### Session Commands
+```
+/sessions - List recent sessions
+/resume - Resume last session
+/continue - Continue current session
+/newproject <path> - Switch to a new project
+/project <path> - Set working directory for Claude
+/softreset - Soft reset (clear conversation, keep project)
+/teleport <session> - Jump to a different session
+```
+
+### Model & Provider Commands
+```
+/model <name> - Set LLM model
+/mode <mode> - Set interaction mode (plan, explore, loop)
+/provider <name> - Set LLM provider
+/terminalui - Toggle terminal UI mode
+```
+
+### Media & File Commands
+```
+/file <filename> - Download file from project
+/extract <url> - Extract text from webpage
+/reddit <url> - Get Reddit post content
+/vreddit <url> - Get Reddit video info
+/medium <url> - Get Medium article
+/transcribe - Transcribe last voice message
+```
+
+### Voice Commands
+```
 /voice - Enable voice replies
 /text - Disable voice replies
+/speak <text> - Test TTS
+```
+
+### Orchestration Commands
+```
+/delegate <task> - Delegate task to orchestration
+/workflow - Show workflow status
+/kanban - Show kanban board
+```
+
+### Information Commands
+```
+/context - Show current context (project, model, mode)
+/botstatus - Detailed bot status
 /models - List available LLM models
+/providers - List available LLM providers
+/history - Show conversation history
 ```
 
 ## Development
