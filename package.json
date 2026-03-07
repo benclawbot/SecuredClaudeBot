@@ -27,7 +27,11 @@
       "tesseract.js"
     ],
     "overrides": {
-      "zod": "^3.23.8"
+      "zod": "^3.23.8",
+      "tar": "^7.4.0",
+      "axios": "^1.7.9",
+      "xlsx": "^0.18.5",
+      "expr-eval": "^2.0.2"
     }
   },
   "devDependencies": {
