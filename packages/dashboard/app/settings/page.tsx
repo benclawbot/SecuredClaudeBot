@@ -229,22 +229,43 @@ export default function SettingsPage() {
       if (data.redirectUri) {
         sessionStorage.setItem("oauth_redirect_uri", data.redirectUri);
       }
+      // Generate and store CSRF state parameter
+      const state = crypto.randomUUID();
+      sessionStorage.setItem("oauth_state", state);
+      // Append state to OAuth URL
+      const authUrl = data.url.includes("?")
+        ? `${data.url}&state=${state}`
+        : `${data.url}?state=${state}`;
       // Open OAuth URL in new window/tab
-      window.open(data.url, "_blank", "width=600,height=700");
+      window.open(authUrl, "_blank", "width=600,height=700");
     });
 
     socket.on("oauth:microsoft:url", (data: { url: string; redirectUri?: string }) => {
       if (data.redirectUri) {
         sessionStorage.setItem("oauth_redirect_uri", data.redirectUri);
       }
-      window.open(data.url, "_blank", "width=600,height=700");
+      // Generate and store CSRF state parameter
+      const state = crypto.randomUUID();
+      sessionStorage.setItem("oauth_state", state);
+      // Append state to OAuth URL
+      const authUrl = data.url.includes("?")
+        ? `${data.url}&state=${state}`
+        : `${data.url}?state=${state}`;
+      window.open(authUrl, "_blank", "width=600,height=700");
     });
 
     socket.on("oauth:github:url", (data: { url: string; redirectUri?: string }) => {
       if (data.redirectUri) {
         sessionStorage.setItem("oauth_redirect_uri", data.redirectUri);
       }
-      window.open(data.url, "_blank", "width=600,height=700");
+      // Generate and store CSRF state parameter
+      const state = crypto.randomUUID();
+      sessionStorage.setItem("oauth_state", state);
+      // Append state to OAuth URL
+      const authUrl = data.url.includes("?")
+        ? `${data.url}&state=${state}`
+        : `${data.url}?state=${state}`;
+      window.open(authUrl, "_blank", "width=600,height=700");
     });
 
     // Request initial OAuth status

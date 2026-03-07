@@ -15,6 +15,7 @@ function OAuthGitHubCallbackContent() {
 
   useEffect(() => {
     const code = searchParams.get("code");
+    const state = searchParams.get("state");
     const errorParam = searchParams.get("error");
 
     if (errorParam) {
@@ -28,6 +29,16 @@ function OAuthGitHubCallbackContent() {
       setError("No authorization code received");
       return;
     }
+
+    // Validate CSRF state parameter
+    const storedState = sessionStorage.getItem("oauth_state");
+    if (!state || state !== storedState) {
+      setStatus("error");
+      setError("Invalid state parameter - possible CSRF attack");
+      sessionStorage.removeItem("oauth_state");
+      return;
+    }
+    sessionStorage.removeItem("oauth_state");
 
     const redirectUri = sessionStorage.getItem("oauth_redirect_uri") || undefined;
 

@@ -28,6 +28,16 @@ function OAuthCallbackContent() {
       return;
     }
 
+    // Validate CSRF state parameter
+    const storedState = sessionStorage.getItem("oauth_state");
+    if (!state || state !== storedState) {
+      setStatus("error");
+      setError("Invalid state parameter - possible CSRF attack");
+      sessionStorage.removeItem("oauth_state");
+      return;
+    }
+    sessionStorage.removeItem("oauth_state");
+
     // Determine provider from the path
     const path = window.location.pathname;
     let provider = "";
